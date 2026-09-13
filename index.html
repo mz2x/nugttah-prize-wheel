@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>عجلة جوائز نقطة</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@400;500;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-app-compat.min.js" integrity="sha512-gCJuoyvPlJMaTPkYPfyfEt1KYPvoEE9PgGHlOU+Qtg+kLbBfEbiiim4PDj2ATWLc6BN0irZnNbdgzCtX53vjXQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/12.16.0/firebase-firestore-compat.min.js" integrity="sha512-Xxpv+NpwNyir+77oEME5XeixRoRLrI4eY0bBZSMHgWLEFbc0f+JP4Nax3t/qDuYg1hgWrSl8pUapb+AO5Lp1jA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<style>
+  :root{
+    --bg: #0D425F;
+    --panel: rgba(255,255,255,0.06);
+    --panel-2: rgba(255,255,255,0.11);
+    --line: rgba(255,255,255,0.16);
+    --line-strong: rgba(255,255,255,0.30);
+    --ink: #FFFFFF;
+    --ink-muted: rgba(255,255,255,0.68);
+    --ink-faint: rgba(255,255,255,0.42);
+    --accent: #F8AE4E;
+    --accent-strong: #FBC57E;
+    --accent-ink: #0D425F;
+    --mint: #90DEC1;
+    --pink: #ECB1D1;
+    --error: #E9877A;
+    --font-display: "Cairo", "Tajawal", sans-serif;
+    --font-body: "Tajawal", "Cairo", sans-serif;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  h1, h2, h3{ font-family: var(--font-display); font-weight: 800; text-wrap: balance; margin: 0; }
+
+  button{ font-family: inherit; }
+  input{ font-family: inherit; }
+
+  button:focus-visible, input:focus-visible, a:focus-visible{
+    outline: 2px solid var(--accent-strong);
+    outline-offset: 3px;
+  }
+
+  #app{
+    position: relative;
+    min-height: 100dvh;
+  }
+
+  .screen{
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(20px, 4vw, 56px);
+  }
+
+  /* ---------- Wordmark (نقطة / NUGTTAH lockup) ---------- */
+  .wordmark{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .wordmark-ar{
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.5rem;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .wordmark-en{
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.7rem;
+    letter-spacing: 0.22em;
+    color: var(--ink-muted);
+    line-height: 1;
+  }
+
+  .status-dot{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.01em;
+  }
+  .status-dot::before{
+    content: "";
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--ink-faint);
+    flex: none;
+  }
+  .status-dot[data-state="live"]{ color: var(--accent-strong); }
+  .status-dot[data-state="live"]::before{ background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .status-dot[data-state="error"]{ color: var(--error); }
+  .status-dot[data-state="error"]::before{ background: var(--error); }
+
+  /* ---------- Role picker ---------- */
+  .picker-card{
+    width: min(760px, 100%);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+  }
+  .picker-title{ font-size: clamp(1.9rem, 4vw, 2.6rem); }
+  .picker-sub{ color: var(--ink-muted); font-size: 1rem; max-width: 42ch; margin: 0 auto; }
+  .role-options{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 16px;
+    width: 100%;
+  }
+  .role-btn{
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    text-align: start;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 22px 20px;
+    color: var(--ink);
+    cursor: pointer;
+    transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  }
+  .role-btn:hover{ border-color: var(--accent); transform: translateY(-2px); background: var(--panel-2); }
+  .role-btn .glyph{ display: inline-flex; color: var(--accent-strong); }
+  .role-btn .name{ font-weight: 800; font-size: 1.05rem; font-family: var(--font-display); }
+  .role-btn .hint{ color: var(--ink-muted); font-size: 0.85rem; }
+
+  /* ---------- iPad entry ---------- */
+  .entry-card{
+    width: min(520px, 100%);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    padding: clamp(28px, 5vw, 44px);
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .entry-head{ display: flex; flex-direction: column; gap: 8px; text-align: center; }
+  .entry-title{ font-size: clamp(1.7rem, 4vw, 2.1rem); }
+  .entry-sub{ color: var(--ink-muted); font-size: 0.95rem; }
+  .field{ display: flex; flex-direction: column; gap: 8px; }
+  .field label{ font-size: 0.85rem; color: var(--ink-muted); font-weight: 600; }
+  .brand-field{ position: relative; }
+  .brand-suggestions{
+    position: absolute;
+    top: 100%;
+    inset-inline: 0;
+    margin-top: 6px;
+    background: var(--bg);
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    max-height: 240px;
+    overflow-y: auto;
+    z-index: 15;
+    box-shadow: 0 16px 32px rgba(0,0,0,0.35);
+  }
+  .brand-suggestion{
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand-suggestion:last-child{ border-bottom: none; }
+  .brand-suggestion:hover{ background: var(--panel-2); }
+  .brand-suggestion .ar{ font-weight: 700; }
+  .brand-suggestion .en{ font-size: 0.78rem; color: var(--ink-muted); }
+  .field input{
+    background: rgba(0,0,0,0.16);
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    padding: 16px 16px;
+    color: var(--ink);
+    font-size: 1.1rem;
+    min-height: 56px;
+    text-align: start;
+  }
+  .field input::placeholder{ color: var(--ink-faint); }
+  .field-error{ min-height: 1.1em; color: var(--error); font-size: 0.85rem; }
+  .roll-btn{
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none;
+    border-radius: 14px;
+    padding: 18px;
+    font-size: 1.2rem;
+    font-weight: 800;
+    font-family: var(--font-display);
+    cursor: pointer;
+    transition: filter 0.15s ease, transform 0.1s ease;
+  }
+  .roll-btn:hover:not(:disabled){ filter: brightness(1.08); }
+  .roll-btn:active:not(:disabled){ transform: scale(0.98); }
+  .roll-btn:disabled{ opacity: 0.55; cursor: not-allowed; }
+  .entry-confirm{
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    text-align: center;
+    padding: 18px 8px 4px;
+  }
+  .entry-confirm.show{ display: flex; }
+  .entry-confirm .big{ display: inline-flex; color: var(--accent-strong); }
+  .entry-confirm p{ margin: 0; color: var(--ink-muted); }
+  .entry-form.hide{ display: none; }
+
+  /* ---------- TV display ---------- */
+  .tv-stage{
+    width: 100%;
+    max-width: 1400px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(18px, 3vw, 34px);
+  }
+  .tv-brand{ display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .tv-brand .tagline{ color: var(--ink-muted); font-size: clamp(0.9rem, 1.4vw, 1.05rem); }
+
+  .wheel-wrap{
+    position: relative;
+    width: clamp(340px, 46vw, 640px);
+    aspect-ratio: 1;
+  }
+  .wheel-pointer{
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 20px solid transparent;
+    border-right: 20px solid transparent;
+    border-top: 34px solid #FFFFFF;
+    filter: drop-shadow(0 4px 6px rgba(13,66,95,0.55));
+    z-index: 5;
+  }
+  .wheel-disc{
+    width: 100%;
+    height: 100%;
+    transform: rotate(0deg);
+    transition: transform 4.2s cubic-bezier(0.15, 0.65, 0.15, 1);
+    filter: drop-shadow(0 18px 40px rgba(0,0,0,0.45));
+  }
+  .wheel-disc svg{ width: 100%; height: 100%; display: block; }
+  .wedge-a{ fill: var(--mint); }
+  .wedge-b{ fill: var(--accent); }
+  .wedge-c{ fill: var(--pink); }
+  .wedge-outline{ stroke: #FFFFFF; stroke-width: 3; }
+  .wedge-label{
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 14px;
+    fill: var(--accent-ink);
+  }
+  .wheel-hub{ fill: var(--accent); stroke: #FFFFFF; stroke-width: 5; }
+  .wheel-hub-icon{ fill: none; stroke: var(--accent-ink); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+  .tv-caption{
+    font-size: clamp(1.1rem, 2.2vw, 1.5rem);
+    color: var(--ink-muted);
+    text-align: center;
+    min-height: 1.4em;
+  }
+  .tv-caption strong{ color: var(--ink); font-weight: 800; }
+  .redo-btn{
+    position: absolute;
+    top: 50%;
+    right: clamp(-64px, -8vw, -48px);
+    transform: translateY(-50%);
+    width: 58px;
+    height: 58px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    color: var(--accent-ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 6;
+    transition: filter 0.15s ease, opacity 0.15s ease;
+  }
+  .redo-btn:hover:not(:disabled){ filter: brightness(1.08); }
+  .redo-btn:active:not(:disabled){ transform: translateY(-50%) scale(0.94); }
+  .redo-btn:disabled{ opacity: 0.3; cursor: not-allowed; }
+
+  .celebration-overlay{
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(6, 20, 32, 0.88);
+    z-index: 20;
+    overflow: hidden;
+  }
+  .celebration-card{
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 0 24px;
+  }
+  .celebration-eyebrow{
+    color: var(--accent-strong);
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: var(--font-display);
+  }
+  .celebration-title{ font-size: clamp(2.4rem, 6vw, 4.2rem); color: var(--ink); }
+  .celebration-prize{
+    font-size: clamp(1.3rem, 3vw, 1.9rem);
+    color: var(--accent-strong);
+    font-weight: 800;
+    font-family: var(--font-display);
+    max-width: 26ch;
+  }
+  .celebration-category{ color: var(--ink-muted); font-size: 1rem; }
+  .confetti-layer{ position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+  .confetti-piece{
+    position: absolute;
+    top: -12px;
+    width: 9px; height: 14px;
+    opacity: 0.95;
+    animation: confetti-fall linear forwards;
+  }
+  @keyframes confetti-fall{
+    0%{ transform: translateY(0) rotate(0deg); opacity: 1; }
+    100%{ transform: translateY(105vh) rotate(600deg); opacity: 0.4; }
+  }
+
+  /* ---------- Sheet / Admin ---------- */
+  .admin-wrap{
+    width: min(1000px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    align-items: stretch;
+  }
+  .admin-head{ display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .admin-title{ font-size: clamp(1.5rem, 3vw, 2rem); }
+  .admin-actions{ display: flex; gap: 12px; align-items: center; }
+  .btn-secondary{
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-weight: 700;
+    font-family: var(--font-display);
+    cursor: pointer;
+  }
+  .btn-secondary:hover{ border-color: var(--accent); }
+  .stat-row{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+  }
+  .stat-tile{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .stat-tile .num{ font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+  .stat-tile .lbl{ color: var(--ink-muted); font-size: 0.8rem; }
+  .table-wrap{
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    overflow: auto;
+    max-height: 52vh;
+    background: var(--panel);
+  }
+  table{ width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  thead th{
+    position: sticky; top: 0;
+    background: var(--panel-2);
+    text-align: start;
+    padding: 12px 16px;
+    font-size: 0.78rem;
+    color: var(--ink-muted);
+    border-bottom: 1px solid var(--line);
+  }
+  tbody td{ padding: 12px 16px; border-bottom: 1px solid var(--line); text-align: start; }
+  tbody tr:last-child td{ border-bottom: none; }
+  td.num-col, th.num-col{ font-variant-numeric: tabular-nums; }
+  td.action-col, th.action-col{ width: 1%; white-space: nowrap; text-align: end; }
+  .admin-empty{ padding: 40px 16px; text-align: center; color: var(--ink-muted); }
+  .row-delete{
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    color: var(--ink-muted);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    font-family: var(--font-display);
+    cursor: pointer;
+  }
+  .row-delete:hover{ border-color: var(--error); color: var(--error); }
+  .row-delete.confirm{ background: var(--error); border-color: var(--error); color: #2A0D09; }
+
+  /* ---------- Offline / connecting ---------- */
+  .offline-card{
+    text-align: center;
+    max-width: 46ch;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+  }
+  .offline-card .glyph{ display: inline-flex; color: var(--error); }
+  .offline-card p{ color: var(--ink-muted); margin: 0; }
+
+  /* ---------- Role reset control ---------- */
+  .role-reset{
+    position: fixed;
+    inset-inline-start: 16px;
+    bottom: 16px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--line);
+    color: var(--ink-faint);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 30;
+    opacity: 0.35;
+    transition: opacity 0.15s ease;
+  }
+  .role-reset:hover{ opacity: 1; }
+  .role-reset-confirm{
+    position: fixed;
+    inset-inline-start: 16px;
+    bottom: 58px;
+    z-index: 31;
+    background: var(--bg);
+    border: 1px solid var(--line-strong);
+    border-radius: 14px;
+    padding: 16px;
+    width: 220px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+  }
+  .role-reset-confirm p{ margin: 0 0 12px; font-size: 0.88rem; color: var(--ink); }
+  .role-reset-actions{ display: flex; gap: 8px; justify-content: flex-end; }
+  .role-reset-actions button{
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.82rem;
+    font-family: var(--font-body);
+    cursor: pointer;
+  }
+  #roleResetCancel{ background: transparent; border: 1px solid var(--line-strong); color: var(--ink-muted); }
+  #roleResetConfirmBtn{ background: var(--accent); border: none; color: var(--accent-ink); font-weight: 700; }
+
+  [hidden]{ display: none !important; }
+
+  @media (prefers-reduced-motion: reduce){
+    .wheel-disc{ transition-duration: 0.6s; }
+    .confetti-piece{ animation-duration: 0.01s !important; opacity: 0 !important; }
+    .role-btn{ transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app" dir="rtl" lang="ar">
+
+  <button id="roleReset" class="role-reset" type="button" aria-label="تغيير دور الجهاز" hidden>
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="2"/>
+      <line x1="4" y1="14" x2="20" y2="14"/><circle cx="16" cy="14" r="2"/>
+      <line x1="4" y1="21" x2="20" y2="21"/><circle cx="11" cy="21" r="2"/>
+    </svg>
+  </button>
+  <div id="roleResetConfirm" class="role-reset-confirm" hidden>
+    <p>تغيير دور هذا الجهاز؟</p>
+    <div class="role-reset-actions">
+      <button type="button" id="roleResetCancel">إلغاء</button>
+      <button type="button" id="roleResetConfirmBtn">تغيير الدور</button>
+    </div>
+  </div>
+
+  <section id="screen-picker" class="screen" hidden>
+    <div class="picker-card">
+      <span class="wordmark"><span class="wordmark-ar">نقطة</span><span class="wordmark-en">NUGTTAH</span></span>
+      <h1 class="picker-title">بوث معرض Time Out — عجلة الجوائز</h1>
+      <p class="picker-sub">اختر وش يشتغل عليه هذا الجهاز. كل جهاز يحفظ دوره لين تغيّره من هنا.</p>
+      <div class="role-options">
+        <button type="button" class="role-btn" id="pickIpad">
+          <span class="glyph">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2.4"/><line x1="10" y1="19" x2="14" y2="19"/>
+            </svg>
+          </span>
+          <span class="name">آيباد — شاشة التسجيل</span>
+          <span class="hint">الموظف يسجل اسم البراند ورقم الجوال ثم يضغط لف</span>
+        </button>
+        <button type="button" class="role-btn" id="pickTv">
+          <span class="glyph">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2.5" y="4" width="19" height="13" rx="1.6"/><line x1="8.5" y1="20.5" x2="15.5" y2="20.5"/><line x1="12" y1="17" x2="12" y2="20.5"/>
+            </svg>
+          </span>
+          <span class="name">تلفزيون — شاشة العرض</span>
+          <span class="hint">تعرض عجلة الجوائز الحيّة واحتفالية الفائز</span>
+        </button>
+        <button type="button" class="role-btn" id="pickAdmin">
+          <span class="glyph">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="16" rx="1.6"/><line x1="3" y1="9.5" x2="21" y2="9.5"/><line x1="3" y1="14.5" x2="21" y2="14.5"/><line x1="10" y1="4" x2="10" y2="20"/>
+            </svg>
+          </span>
+          <span class="name">شيت الفائزين</span>
+          <span class="hint">جدول حي بكل التسجيلات — تصدير أو حذف أي صف</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-ipad" class="screen" hidden>
+    <div class="entry-card">
+      <div class="entry-head">
+        <span class="wordmark"><span class="wordmark-ar">نقطة</span><span class="wordmark-en">NUGTTAH</span></span>
+        <h2 class="entry-title">لف واربح</h2>
+        <p class="entry-sub">سجل بيانات البراند، ثم اضغط لف وتابعوا الشاشة الكبيرة.</p>
+      </div>
+
+      <form id="ipadForm" class="entry-form">
+        <div class="field brand-field">
+          <label for="brandNameInput">اسم البراند</label>
+          <input id="brandNameInput" type="text" placeholder="مثال: بن كوفي" autocomplete="off" maxlength="80">
+          <div class="brand-suggestions" id="brandSuggestions" hidden></div>
+        </div>
+        <div class="field">
+          <label for="phoneInput">رقم الجوال</label>
+          <input id="phoneInput" type="tel" inputmode="numeric" dir="ltr" placeholder="05XXXXXXXX" autocomplete="off" maxlength="12">
+        </div>
+        <div class="field-error" id="ipadError"></div>
+        <button type="submit" class="roll-btn" id="rollBtn">لف العجلة</button>
+      </form>
+
+      <div class="entry-confirm" id="ipadConfirm">
+        <span class="big">
+          <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9.5"/><path d="M8 12.5l2.5 2.5 5.5-5.5"/>
+          </svg>
+        </span>
+        <h3>تم الإرسال!</h3>
+        <p>شاهدوا الشاشة الكبيرة — العجلة بدأت تلف الآن.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-tv" class="screen" hidden>
+    <div class="tv-stage">
+      <div class="tv-brand">
+        <span class="wordmark"><span class="wordmark-ar">نقطة</span><span class="wordmark-en">NUGTTAH</span></span>
+        <span class="tagline">بوث معرض Time Out</span>
+      </div>
+      <div class="wheel-wrap">
+        <div class="wheel-pointer" aria-hidden="true"></div>
+        <div class="wheel-disc" id="wheelDisc"></div>
+        <button type="button" class="redo-btn" id="redoBtn" disabled aria-label="إعادة اللف لنفس البراند" title="إعادة اللف لنفس البراند">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+            <path d="M21 3v5h-5"/>
+            <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+            <path d="M3 21v-5h5"/>
+          </svg>
+        </button>
+      </div>
+      <p class="tv-caption" id="tvCaption"></p>
+      <div class="status-dot" id="tvStatus" data-state="connecting">جاري الاتصال</div>
+    </div>
+  </section>
+
+  <section id="screen-admin" class="screen" hidden>
+    <div class="entry-card" id="adminLock">
+      <div class="entry-head">
+        <span class="wordmark"><span class="wordmark-ar">نقطة</span><span class="wordmark-en">NUGTTAH</span></span>
+        <h2 class="entry-title">شيت الفائزين</h2>
+        <p class="entry-sub">أدخل رمز الدخول للمتابعة.</p>
+      </div>
+      <form id="adminLockForm" class="entry-form">
+        <div class="field">
+          <label for="adminPinInput">رمز الدخول</label>
+          <input id="adminPinInput" type="password" inputmode="numeric" dir="ltr" placeholder="••••" autocomplete="off" maxlength="12">
+        </div>
+        <div class="field-error" id="adminLockError"></div>
+        <button type="submit" class="roll-btn">دخول</button>
+      </form>
+    </div>
+    <div class="admin-wrap" id="adminContent" hidden>
+      <div class="admin-head">
+        <h2 class="admin-title">شيت الفائزين</h2>
+        <div class="admin-actions">
+          <span class="status-dot" id="adminStatus" data-state="connecting">جاري الاتصال</span>
+          <button type="button" class="btn-secondary" id="downloadCsvBtn">تنزيل CSV</button>
+        </div>
+      </div>
+      <div class="stat-row" id="adminStats"></div>
+      <div class="table-wrap">
+        <table id="adminTable">
+          <thead>
+            <tr>
+              <th>اسم البراند</th>
+              <th>رقم الجوال</th>
+              <th>الجائزة</th>
+              <th class="num-col">الوقت</th>
+              <th class="action-col">حذف</th>
+            </tr>
+          </thead>
+          <tbody id="adminTbody"></tbody>
+        </table>
+        <div class="admin-empty" id="adminEmpty" hidden>ما فيه تسجيلات بعد — النتائج بتظهر هنا أول ما تبدأ العجلة تلف.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-offline" class="screen" hidden>
+    <div class="offline-card">
+      <span class="glyph">
+        <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3.5 21.5 20h-19z"/><line x1="12" y1="9.5" x2="12" y2="14"/><circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none"/>
+        </svg>
+      </span>
+      <h2>التزامن غير متاح</h2>
+      <p>إعداد قاعدة البيانات (Firebase) ما اكتمل بعد بالملف، أو صار خطأ بالاتصال. تأكد من الإعداد ثم أعد تحميل الصفحة.</p>
+    </div>
+  </section>
+
+  <div id="celebrationOverlay" class="celebration-overlay" hidden>
+    <div class="confetti-layer" id="confettiLayer"></div>
+    <div class="celebration-card">
+      <span class="celebration-eyebrow" id="celebrationEyebrow">مبروك!</span>
+      <h2 class="celebration-title" id="celebrationBrand"></h2>
+      <p class="celebration-prize" id="celebrationPrize"></p>
+      <p class="celebration-category" id="celebrationCategory"></p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var BRANDS = [{"ar":"10 Won","en":"10 Won"},{"ar":"33 برنوز","en":"33BROS"},{"ar":"ثري بين","en":"3 Bean"},{"ar":"3 أكواب","en":"3CUPS"},{"ar":"3DOTS","en":"3DOTS"},{"ar":"78 Coffee","en":"78 Coffee"},{"ar":"اونت اونز","en":"8oz Coffee"},{"ar":"شاي عبق","en":"Abaq tea"},{"ar":"أبجدية","en":"Abjadiyah"},{"ar":"أبو ستة","en":"Abo Sittah"},{"ar":"ابسلوت","en":"ABSLT"},{"ar":"محمصة الفرز","en":"Acres Coffee Roaster"},{"ar":"شاي أديم","en":"Adeem Tea"},{"ar":"اقريو","en":"Agrio"},{"ar":"Aim Coffee Bar","en":"Aim Coffee Bar"},{"ar":"اير كوفي وللمحمصة","en":"Air Coffee Roaster"},{"ar":"الدكنة كوفي","en":"Aldakna Coffee"},{"ar":"القو","en":"ALGO Roastery"},{"ar":"الحاشي البري","en":"alhashi Albari"},{"ar":"الس كافيه","en":"Alice cafe"},{"ar":"مغسلة علي برو واش","en":"Ali pro wash"},{"ar":"ALL DAY","en":"ALL DAY"},{"ar":"اللقيمات المميزة","en":"Al Luqaimat Al Mumayaz"},{"ar":"ألما","en":"ALMA"},{"ar":"محمصة السراوي","en":"Alsarawe Roastery"},{"ar":"عنبر","en":"Amber"},{"ar":"الامريكاني برجر عالفحم","en":"Americano Burger On Charcoal"},{"ar":"كافيه امو كافيه","en":"AMO CAFE"},{"ar":"الموند","en":"Amond"},{"ar":"ام اس كافيه","en":"AM Specialty Coffee"},{"ar":"ام برجر","en":"AN BURGER"},{"ar":"AN cofee","en":"AN cofee"},{"ar":"الاندرينا","en":"ANDARENA"},{"ar":"انير كوفر","en":"Aneer coffee"},{"ar":"عنقاء","en":"anqaa"},{"ar":"كافيه انت","en":"Ant Cafe"},{"ar":"محمصة التاناب","en":"Antinap Coffee & Roastery"},{"ar":"أقاحي","en":"AQAHI"},{"ar":"ارتشي","en":"ARCHI"},{"ar":"اركو","en":"Arco"},{"ar":"أريكة","en":"Arikah"},{"ar":"شركة أركان سرب المحدودة","en":"Arkan Sarb Company Ltd"},{"ar":"AROUND1500","en":"AROUND1500"},{"ar":"كافة أرتال","en":"Artal cafe"},{"ar":"اروا","en":"ARVA"},{"ar":"عصفورة","en":"Asfoura"},{"ar":"اشجار كافيه","en":"Ashjar Cafe"},{"ar":"اصل البن","en":"Asl l bon"},{"ar":"ات كافيه","en":"AT CAFE"},{"ar":"ATEA","en":"ATEA"},{"ar":"اتموسفير","en":"ATMOSPHERE"},{"ar":"اتيبيكال","en":"Atypical"},{"ar":"كوفي الج","en":"awj coffee"},{"ar":"أوزان البن","en":"Awzan Coffee"},{"ar":"أوسيز","en":"AXES"},{"ar":"باء بيكهاوس","en":"Baâa Bakehouse"},{"ar":"كوفي بديعة","en":"Badeeah Coffee"},{"ar":"بها","en":"Baha"},{"ar":"كوفي باهر","en":"BAHER"},{"ar":"بلد","en":"BALAD CAFE"},{"ar":"بار","en":"Bar"},{"ar":"باريستاس كافيه","en":"Baristas coffee"},{"ar":"بساتين الشام","en":"Basateen Alsham"},{"ar":"بيسيكلي برجر","en":"Basically Burgers"},{"ar":"باستي","en":"BASTY"},{"ar":"باتش","en":"BATCH"},{"ar":"باتيك","en":"BATIK"},{"ar":"بتلة بن","en":"Batla Bn"},{"ar":"بيت بزار","en":"BAYT BZAR"},{"ar":"بي كافيه","en":"B Cafe"},{"ar":"بين اند بن","en":"BEAN & BUN"},{"ar":"بيف تاون","en":"Beef town"},{"ar":"بي فاين","en":"Befine"},{"ar":"شاورما بيروت","en":"Beirut Shawarma"},{"ar":"بيليزا","en":"BELEZA"},{"ar":"كافيه بيلا بين","en":"Bella bean cafe"},{"ar":"بيلونج","en":"Belong"},{"ar":"Ben Burger","en":"Ben Burger"},{"ar":"كوفي اطيب بن","en":"BEST BEANS"},{"ar":"بساط","en":"BISAT"},{"ar":"بي كي","en":"BK"},{"ar":"بلاك ستامب","en":"Black Stamp"},{"ar":"كوفي بليم","en":"BLEEM"},{"ar":"بلند","en":"Blend"},{"ar":"Blossoms Bar","en":"Blossoms Bar"},{"ar":"BLUE MATCHA","en":"BLUE MATCHA"},{"ar":"بلو مايند","en":"Blue Mind"},{"ar":"Blush Matcha","en":"Blush Matcha"},{"ar":"B.Marlin","en":"B.Marlin"},{"ar":"بواك","en":"Boac"},{"ar":"بوعد","en":"Boad"},{"ar":"بوفا","en":"BOFA"},{"ar":"BOFI | بوفي","en":"BOFI | بوفي"},{"ar":"بوخا","en":"BOKHA"},{"ar":"بون تشانس","en":"Bonne Chance"},{"ar":"بورا كافيه","en":"BORA"},{"ar":"بوسكو","en":"BOSSCO"},{"ar":"بوربون","en":"Bourbon"},{"ar":"BOW","en":"BOW"},{"ar":"برايڤ","en":"Brave"},{"ar":"بريهانت","en":"BREEHANT"},{"ar":"كافة بريود","en":"BREWD"},{"ar":"برو اب","en":"Brew up"},{"ar":"بروفيرا","en":"Brewvera"},{"ar":"برو كوفي","en":"BrÅÅ Coffee"},{"ar":"بروف كافي","en":"BROV Coffee"},{"ar":"Brownie specialty coffee","en":"Brownie specialty coffee"},{"ar":"BRU Café","en":"BRU Café"},{"ar":"بروبا","en":"BRUNA"},{"ar":"بسيل كافة مختصة","en":"Bseel Cafe"},{"ar":"مطعم رز مكشمش","en":"Bukhari Rice Mkashmsh"},{"ar":"برجر هب","en":"Burger Hub"},{"ar":"باتر","en":"Butter"},{"ar":"باي ذا واي","en":"By The Way (BTW)"},{"ar":"BZZN cafe","en":"BZZN cafe"},{"ar":"كاكتي","en":"Cacti"},{"ar":"كافيه فلو","en":"Cafe Flow"},{"ar":"كافين","en":"CAFEIN"},{"ar":"كافينيشن","en":"Caffeination"},{"ar":"كيك بوتيك","en":"Cake Boutique"},{"ar":"كاليبريتد","en":"CALIBRATED"},{"ar":"كالزي","en":"Calze"},{"ar":"كاب","en":"CAP"},{"ar":"كارف كوفي بار","en":"CARVE COFFEE BAR"},{"ar":"كوفي كتاليست","en":"Catalyst Coffee"},{"ar":"كوفة كثف","en":"Cathaf Coffee"},{"ar":"كافا لاتة","en":"cava latte"},{"ar":"كيف","en":"CAVE"},{"ar":"سي كوفي","en":"C coffee"},{"ar":"سديلة","en":"Cedilla"},{"ar":"سيليستي كورنر","en":"CELESTE CORNER"},{"ar":"سيلي","en":"Célie"},{"ar":"سي اف ال كافيه","en":"CFL Cafe"},{"ar":"شاي الاكابر","en":"Chai Akaber"},{"ar":"كافتيريا تشاكي","en":"Chakki cafeteria"},{"ar":"تشا ماتشا","en":"Cha matcha"},{"ar":"تشارت كوفي","en":"Chart Coffee"},{"ar":"تشيزا بار","en":"cheeza bar"},{"ar":"تشيري كوب","en":"Cherry cup"},{"ar":"Chill","en":"Chill"},{"ar":"محمصة شيتا","en":"Chita roastery"},{"ar":"تشولا","en":"CHOLLA COFFEE"},{"ar":"كلاز","en":"CLAZ"},{"ar":"كوبي كافيه","en":"Cobee cafe"},{"ar":"كو كوفي","en":"Coffee MO"},{"ar":"كوفي سايد","en":"Coffee side"},{"ar":"ادوات البن","en":"coffee tools"},{"ar":"كومفي","en":"Comfy"},{"ar":"كون زون","en":"Cone Zone"},{"ar":"كوكيز آند مور","en":"COOKIES & MORE"},{"ar":"ركن الساندويش","en":"CORNER SANDWICH"},{"ar":"كوتد","en":"COTD"},{"ar":"كونتري وي","en":"COUNTRY WAY"},{"ar":"كويارد","en":"Coyard"},{"ar":"كوزي","en":"COZY"},{"ar":"Crafted Salad","en":"Crafted Salad"},{"ar":"كرافتر","en":"Crafter"},{"ar":"كريت سالاد","en":"Crate salad"},{"ar":"كرافوري","en":"CRAVORY"},{"ar":"قطعة كريب","en":"Crepe Piece"},{"ar":"كرو بيكري","en":"CRO Bakrey"},{"ar":"كروبس","en":"Crops"},{"ar":"كروبس كورنر","en":"CROPS CORNER"},{"ar":"كروس","en":"Cross"},{"ar":"كروستو","en":"Crosto"},{"ar":"Crumera","en":"Crumera"},{"ar":"Cup and Go","en":"Cup and Go"},{"ar":"كأس كرك","en":"cup of karak"},{"ar":"كب تو قو","en":"Cup to go"},{"ar":"CUVA","en":"CUVA"},{"ar":"سي اند واي","en":"C&Y"},{"ar":"CYA Coffee House","en":"CYA Coffee House"},{"ar":"سايكل","en":"Cycle"},{"ar":"دهماء","en":"Dahma"},{"ar":"دايلي بن","en":"Daily Bun"},{"ar":"Daily Cup","en":"Daily Cup"},{"ar":"Daily cup - (Faisaliyah, Laban 2)","en":"Daily cup - (Faisaliyah, Laban 2)"},{"ar":"محمصة ماونت دايرماونت","en":"Dair Mount Cafe"},{"ar":"دجاج كمم","en":"DAJAJ KUMM"},{"ar":"دقة الكرك","en":"DAKKAT ALKARAK"},{"ar":"دلة الفارس","en":"Dallat Alfaris"},{"ar":"دانا بيكري","en":"DANA Bakery"},{"ar":"دانونا","en":"DA NONNA"},{"ar":"DARK","en":"DARK"},{"ar":"دورق البن","en":"Dawraq"},{"ar":"دو فلور","en":"De Fleur"},{"ar":"Delivo","en":"Delivo"},{"ar":"عصير الضاحية","en":"Dhahia Juice"},{"ar":"دبسي","en":"Dibsy"},{"ar":"دي كلاس كافيه","en":"Di Class Cafe"},{"ar":"دايونلاند","en":"Dino land"},{"ar":"دايركت مسج","en":"Direct message"},{"ar":"ديستانس أواي","en":"Distance Away"},{"ar":"DM CAFE","en":"DM CAFE"},{"ar":"دوف كافيه","en":"DOFF CAFE"},{"ar":"محمصة ضحى","en":"Doha coffee Roasters"},{"ar":"DO I DO","en":"DO I DO"},{"ar":"دونر باشا","en":"Doner Pasha"},{"ar":"دوبامين","en":"Dopamine"},{"ar":"دبل آي","en":"Double I"},{"ar":"دبل ثري","en":"Double three"},{"ar":"Dough re mi","en":"Dough re mi"},{"ar":"دريشة","en":"Dreeshah"},{"ar":"كوفة المشروب","en":"Drink Aroma"},{"ar":"دريب بين","en":"Drip Bean"},{"ar":"دريبليت - كوفة وبيكري","en":"Driplet - Coffee & Bakery"},{"ar":"دريبولوجي | كوفة مختصة","en":"Dripology"},{"ar":"دريبي كافيه","en":"drippy coffee"},{"ar":"DRY BUTTER","en":"DRY BUTTER"},{"ar":"دوبلين","en":"Du ble"},{"ar":"دو ديت","en":"DUE DATE"},{"ar":"Dust and verse","en":"Dust and verse"},{"ar":"محمصة ديجور","en":"Dyjor Coffee Roasters"},{"ar":"إيكولوجي كوفي","en":"echo"},{"ar":"كوفي إيلاء","en":"Elā"},{"ar":"محمصة كوفي إلبونا","en":"ELBUNA Coffee Roasters"},{"ar":"إكسير البن","en":"Elixir bunn coffee roaster"},{"ar":"الن كافيه","en":"ELN Coffee"},{"ar":"إلس ويز","en":"ELSEWHERE"},{"ar":"التم كوفة مختصة","en":"ELTAM"},{"ar":"الرام العلوم","en":"Elul Ovens"},{"ar":"Epic","en":"Epic"},{"ar":"كوفة ارا","en":"ERA COFFEE"},{"ar":"إسكافا","en":"eskava"},{"ar":"ورث برجر","en":"Establishment North Burger"},{"ar":"إيڤا","en":"Eva"},{"ar":"ايفا كافي","en":"EVA Caffe"},{"ar":"محمصة إفادور","en":"Evador Roaster"},{"ar":"إڤينت كافيه","en":"Event cafe"},{"ar":"ايفن ذو","en":"even thu"},{"ar":"ايفن يو","en":"Even you"},{"ar":"كوفة الايفوك","en":"EVOKE"},{"ar":"ايا","en":"EYA"},{"ar":"كوفي اف ناين","en":"F9 Coffee"},{"ar":"فير انف","en":"FAIR enough Coffee"},{"ar":"فلافل بوكس","en":"Falafel Box"},{"ar":"fam.","en":"fam."},{"ar":"فطور أهل الحارة","en":"Fator AHL ALhara"},{"ar":"fav coffee","en":"fav coffee"},{"ar":"fika","en":"fika"},{"ar":"فايل كافيه","en":"File Coffee"},{"ar":"محمصة فلتر | كوفة مختصة","en":"FILTER Roastery | specialty coffee"},{"ar":"فينا","en":"FINA"},{"ar":"فايف بيكري","en":"Five Bakers"},{"ar":"Fladolce | فلادولشي","en":"Fladolce | فلادولشي"},{"ar":"FlavorSome","en":"FlavorSome"},{"ar":"فلوقا","en":"Floga Grill"},{"ar":"فلوم برجر","en":"Flow  Burger"},{"ar":"فلب","en":"FLP"},{"ar":".فلترد","en":"FLTRD."},{"ar":"فلوت","en":"FLUTE"},{"ar":"فلاي كب","en":"FLY CUP"},{"ar":"فوند كافيه","en":"Fond cafe"},{"ar":"فور كافي","en":"FOUR Coffee"},{"ar":"فوزا","en":"FOZA"},{"ar":"ان ار كوكيز","en":"Frcookies"},{"ar":"فروز","en":"Froz"},{"ar":"فذاذ الفاكهة","en":"Fruit taste"},{"ar":"فوجي كافيه","en":"Fuji Cafe"},{"ar":"غين سبا","en":"Geen SPA"},{"ar":"غادي","en":"Ghaady"},{"ar":"غمرة","en":"Ghamra"},{"ar":"غندورة","en":"Ghandorah"},{"ar":"غمار","en":"Ghemar"},{"ar":"GINGER & LIME","en":"GINGER & LIME"},{"ar":"قيفن كوفة مختصة","en":"Given Coffee"},{"ar":"glace","en":"glace"},{"ar":"glint cafe","en":"glint cafe"},{"ar":"جليترز","en":"GLITTERS"},{"ar":"Glowing Aura","en":"Glowing Aura"},{"ar":"كوفي و محمصة كولدن كلاود","en":"Golden Cloud Coffee Roasters"},{"ar":"الكانغر الذهبي","en":"Golden Kangaroo"},{"ar":"قود ميت","en":"GOOD MATE"},{"ar":"كوفة قود نيبر","en":"Good Neighbor"},{"ar":"Goya - قويا","en":"Goya - قويا"},{"ar":"قراب كوفي","en":"Grab Coffee"},{"ar":"قريتزا","en":"GREATZA"},{"ar":"قرين ڤالي","en":"Green valley café"},{"ar":"جروڤي","en":"groovy | House of French Toast"},{"ar":"قيلتي","en":"Guilty"},{"ar":"قلب","en":"Gulp"},{"ar":"حدوة كافة","en":"Hadou cafe"},{"ar":"محمصة كوفي حافة","en":"Haffa Coffee Roastery"},{"ar":"كوفي ومحمصة حي","en":"HAI Coffee & Roasters"},{"ar":"حجي عبدالله","en":"Hajji Abdullah"},{"ar":"كوفي حكوة","en":"Hakwah Speciality Coffee"},{"ar":"half% - مؤسسة نصف ذوق الروائح","en":"half % coffee"},{"ar":"حمراء","en":"Hamra"},{"ar":"هاربور كوفيمة المختصة","en":"HARBOR"},{"ar":"حصول","en":"Haseel cafe & Bakery"},{"ar":"هاش برغر","en":"Hash burger"},{"ar":"حصيلة","en":"Hasila"},{"ar":"حطبة بيت الشاي","en":"Hatbah Tea House"},{"ar":"حاوي","en":"Hawi"},{"ar":"هزل كوفي - جامعة البترول","en":"Hazel coffee - KFUPM."},{"ar":"حزة رزوق","en":"Hazza Ryouq"},{"ar":"كوفي هبت","en":"HBT"},{"ar":"كوفة هدن","en":"hdn coffee"},{"ar":"هيل.","en":"Heal."},{"ar":"حبرو","en":"HEBRO"},{"ar":"هير ان","en":"Here In"},{"ar":"هزي","en":"Hezi"},{"ar":"حنطية","en":"Hintia"},{"ar":"هنت كوفيكية المختصة","en":"Hint Speciality Coffee"},{"ar":"محمصة و كوفي حقبة","en":"Hiqbah Coffee Roasters"},{"ar":"هورس كوفي","en":"Horse Coffee"},{"ar":"هوت كوب","en":"Hot Cup"},{"ar":"HOUSE OF THREES","en":"HOUSE OF THREES"},{"ar":"اتش بينش","en":"Hpinch"},{"ar":"هويلا","en":"HUILA"},{"ar":"محمصة هويلا","en":"Huila coffee"},{"ar":"هيومن بين","en":"HumanBEAN"},{"ar":"حواف","en":"HWAF"},{"ar":"Icon Coffee","en":"Icon Coffee"},{"ar":"كوفي و محمصة ادمي","en":"IDMI COFFEE"},{"ar":"اي كي كوفي","en":"ik coffee"},{"ar":"أنا هنا","en":"Im Here"},{"ar":"In front of","en":"In front of"},{"ar":"i/o","en":"i/o"},{"ar":"ايوتا","en":"IOTA"},{"ar":"ايرس سبا","en":"Iris Beauty Home Spa"},{"ar":"إثا","en":"Itthà"},{"ar":"جديل","en":"Jadeel"},{"ar":"جاجوا","en":"jagua"},{"ar":"كوفة جذل","en":"Jathel Cafe"},{"ar":"جيجيز برجر","en":"JJS Burger"},{"ar":"جمرة برجر","en":"Jmra Burger"},{"ar":"الانظمام","en":"Join"},{"ar":"جوجو برجر","en":"jojo Burger"},{"ar":"محمصة جورن","en":"JORN COFFEE ROASTERS"},{"ar":"عصير مانجا","en":"Juice Mango"},{"ar":"ju specialty coffee","en":"ju specialty coffee"},{"ar":"جست الذر","en":"Just another"},{"ar":"كابي كافيه","en":"KABI"},{"ar":"كافا","en":"KAFA"},{"ar":"كافيا","en":"Kafea"},{"ar":"شاهي كايف","en":"KAIF Tea"},{"ar":"كنكة","en":"kanakah cafe"},{"ar":"كرك عزيز","en":"Karak Aziz"},{"ar":"شاورما الكرمل","en":"Karmel Shawarma"},{"ar":"كاسب كونسبت","en":"Kaseb Concept"},{"ar":"كتف","en":"Katf"},{"ar":"كافا كوفية المختصة","en":"KAVA Speciality Coffee"},{"ar":"كبدة عرب","en":"Kebda Arab"},{"ar":"كيرنل","en":"KERNEL"},{"ar":"كافتيريا خشيف","en":"khshaieef Cafeteria"},{"ar":"محمصة كوفي كيكسترز","en":"Kicksters coffee"},{"ar":"كايت كوفي","en":"Kite coffee"},{"ar":"كيوي","en":"Kivi"},{"ar":"كليجز","en":"Klijas"},{"ar":"مطعم كولبيه","en":"Kolbeh"},{"ar":"كونافا ونكهات العصير","en":"KONAFA & JUICE FLAVORS"},{"ar":"كراز","en":"Kraz"},{"ar":"krew roaster","en":"krew roaster"},{"ar":"كومو ماتشا","en":"KUMO Matcha"},{"ar":"كونافولوجي","en":"Kunafology"},{"ar":"كوب كوفي وكخبز","en":"KUP Cafe & Bakery"},{"ar":"كترة","en":"KUTRA"},{"ar":"شاهي كوة","en":"Kuwah Tea"},{"ar":"كيوتو ماتشا","en":"KYOTO Matcha"},{"ar":"سيدات العناية","en":"Ladies care"},{"ar":"لدن كوفي","en":"LADN Cafe"},{"ar":"لافينكا كوفة مختصة","en":"La Finca Cafe"},{"ar":"لهج","en":"LAHAJ"},{"ar":"لمحة كوفي","en":"lam7a coffee"},{"ar":"شاي لامار","en":"Lamar tea"},{"ar":"لامات كوفي","en":"Lamat coffee"},{"ar":"لامدا","en":"Lambda"},{"ar":"لامر كوفي","en":"LAMER COFFEE"},{"ar":"لاو دريب","en":"LAO"},{"ar":"لابا","en":"Lapa caffe"},{"ar":"لابيرتي كافيه","en":"La Purete Cafe"},{"ar":"لارك","en":"Lark Cafe"},{"ar":"لاس ماتشا","en":"Las Matcha"},{"ar":"لاتش","en":"Latch"},{"ar":"لاتيه وركس","en":"Latte works"},{"ar":"لورين بيكري","en":"LAUREN BAKERY"},{"ar":"لاوندا","en":"Lawnda"},{"ar":"ليف","en":"Leaf"},{"ar":"لاجورنال بيكري وكافية","en":"Le journal bakery"},{"ar":"Le Miche","en":"Le Miche"},{"ar":"ليمون كراس سبا","en":"lemongrass spa"},{"ar":"لند","en":"Lend"},{"ar":"لتس قرين","en":"Let's Green"},{"ar":"لتس سبا","en":"lets spa"},{"ar":"لين كافي","en":"LIN COFFEE"},{"ar":"Lio","en":"Lio"},{"ar":"لابيت","en":"LLABATE CAFE"},{"ar":"لوبسي","en":"Lobsc"},{"ar":"لوكال كافيه","en":"Locale Coffee"},{"ar":"لوك","en":"Lock specialty coffee"},{"ar":"لوفتي كافيه","en":"lofty coffee"},{"ar":"لوق آوت","en":"log out"},{"ar":"لوكيرن","en":"Lokeren"},{"ar":"لوما","en":"LOMA"},{"ar":"لور","en":"LORE"},{"ar":"لوريا","en":"Loria"},{"ar":"لوس تاكوز","en":"Los Tacos"},{"ar":"Low Coffee","en":"Low Coffee"},{"ar":"لوو","en":"Lowe"},{"ar":"Lueur Spa","en":"Lueur Spa"},{"ar":"لوماس","en":"LUMAS"},{"ar":"لوميير","en":"LUMIERE"},{"ar":"محمصة لومين","en":"LUMIN"},{"ar":"لوماس","en":"Lunas"},{"ar":"كوفي شوب عشرين مقدمي المشروبات","en":"M20"},{"ar":"معمولي","en":"MA3MOOOLLi"},{"ar":"مضارب البن","en":"Madarib Albuin"},{"ar":"مدد","en":"Madd"},{"ar":"فذاذ مشتاق","en":"madhaq mushtaq"},{"ar":"مطعم مدور غياهم","en":"Mador Ghaimah"},{"ar":"Magic Matcha","en":"Magic Matcha"},{"ar":"مهاد","en":"MAHAD"},{"ar":"المحل","en":"Mahal cafe"},{"ar":"محصول الشاي","en":"MAHSOUL ALSHAI"},{"ar":"ميك","en":"Make"},{"ar":"مندة","en":"Mandah"},{"ar":"Maq Specialty coffee","en":"Maq Specialty coffee"},{"ar":"ماركوب","en":"Markab"},{"ar":"مرثد","en":"Marthad"},{"ar":"معصب رايق","en":"Masoob Rayeq"},{"ar":"ماتشا ماتشا","en":"MATCHA MATCHA"},{"ar":"مون ماتشا","en":"Matcha Moon"},{"ar":"ماتشا نال","en":"MATCHA NAL"},{"ar":"ماي الزهار كافيه","en":"May Alzahar cafe"},{"ar":"ميت آت طوني","en":"Meat at Tony's"},{"ar":"كوفة مداد","en":"MEDAD Cafe"},{"ar":"ميت اب","en":"Meetup"},{"ar":"مليور","en":"Melluer"},{"ar":"ميلونيشن","en":"Melonation"},{"ar":"ميلون ميلت","en":"MELT"},{"ar":"مقلاط","en":"Meqlat"},{"ar":"مركن (كوفة مختصة)","en":"Merkan"},{"ar":"ميثودز","en":"Methods Specialty Coffee"},{"ar":"مغراب شاي وأكثر","en":"Mgrab Tea & More"},{"ar":"مهيام","en":"Mhyam"},{"ar":"ميليو","en":"Milieu"},{"ar":"مقدار رشفة","en":"Miqdar Rashfa"},{"ar":"ميس & ماتش","en":"Mix & Match"},{"ar":"ام كي كوفي","en":"MK Coffee"},{"ar":"ملقا","en":"MLGA"},{"ar":"ملو كوب","en":"MLU CUP"},{"ar":"معبر | كوفة مختصة","en":"Moaber | Specialty coffee"},{"ar":"موف","en":"moff"},{"ar":"مولتن","en":"Molten"},{"ar":"مومو ماتشا","en":"Momo Matcha"},{"ar":"Mo nail بي بلاك","en":"Mo nail بي بلاك"},{"ar":"موني","en":"MONY"},{"ar":"مود","en":"Mood"},{"ar":"مود بينز","en":"Mood beans"},{"ar":"موت المود","en":"Mood Coffee"},{"ar":"صانع المزاج","en":"MooD Maker"},{"ar":"مود ماستر","en":"Mood Masters"},{"ar":"مون شل","en":"Moon Shell"},{"ar":"موراق كوفة مختصة","en":"Moraq Specialty coffee"},{"ar":"موشي","en":"MOSHI"},{"ar":"مذهلة","en":"Mothhelah"},{"ar":"ماونتن كوفي","en":"MOUNTAN"},{"ar":"موڤ كب","en":"Movcup"},{"ar":"مستر جمبري سمك وبطاطا","en":"MS.Gambary"},{"ar":"m street coffee","en":"m street coffee"},{"ar":"كوفة موجة","en":"MUHJAH CAFE"},{"ar":"مالتي سالد","en":"Multi Salad"},{"ar":"موناة كافيه","en":"Munat Cafe"},{"ar":"شاورما مسكتة","en":"Musakkita"},{"ar":"نديم","en":"Nadim"},{"ar":"ناف","en":"NAF"},{"ar":"نفس","en":"nafas"},{"ar":"كوفة نفل","en":"Nafel coffee"},{"ar":"نهم كوفي","en":"NAHM"},{"ar":"Nail it","en":"Nail it"},{"ar":"نمق","en":"Namq"},{"ar":"نسق","en":"nasaq"},{"ar":"كوفة نسج","en":"NASJ Coffee"},{"ar":"نص","en":"Nass coffe"},{"ar":"شاي نثر","en":"Nather Tea"},{"ar":"ناي","en":"NAY"},{"ar":"ND burger maker","en":"ND burger maker"},{"ar":"نيربي","en":"Nearby"},{"ar":"كوفة نجوة كوفة مختصة","en":"NEGWAH"},{"ar":"Neros cafe - نيرو كوفرس سبيشالتي كوفي","en":"Neros cafe - نيرو كوفرس سبيشالتي كوفي"},{"ar":"نايت شفت","en":"Night Shift"},{"ar":"ناينتي ناين كوفي","en":"NINETY NINE COFFEE"},{"ar":"Ninety three coffee roastery","en":"Ninety three coffee roastery"},{"ar":"نيب كوفة مختصة ومحمصة","en":"Nip Roastery وSpecialty Coffee"},{"ar":"نوما - كوفة مختصه","en":"Noma"},{"ar":"نورم-","en":"Norm-"},{"ar":"Norvi","en":"Norvi"},{"ar":"نوساوند","en":"No Sound"},{"ar":"نوا كافيه","en":"nowa cafe"},{"ar":"ناو آند ذلك","en":"NOW & THEN"},{"ar":"نوكسي كافيه","en":"Noxy Cafe"},{"ar":"كوفة نسل NSL","en":"NSL coffee"},{"ar":"نوما","en":"Numa"},{"ar":"نتمق كوفي","en":"NUTMEG COFFEE"},{"ar":"نوفيك","en":"nuviq"},{"ar":"O2","en":"O2"},{"ar":"اويسيس سبا","en":"oasis Spa"},{"ar":"أوزا كافيه","en":"Oaza cafe"},{"ar":"أبهة كافية ومحمصة","en":"Obha Coffee roasters"},{"ar":"كوفي ابو كب مقدمي المشروبات","en":"OBO CUP"},{"ar":"Ocean Matcha","en":"Ocean Matcha"},{"ar":"OCHRE - الاكر","en":"OCHRE - الاكر"},{"ar":"اومز","en":"Ohm's"},{"ar":"اوجير كوفي","en":"OJAIR COFFEE"},{"ar":"اوكيرو","en":"OKIRO"},{"ar":"محمصة اولا","en":"OLA ROASTRY"},{"ar":"اولد لين","en":"Old Lane"},{"ar":"أولينين","en":"Olen"},{"ar":"اولهو","en":"Olho"},{"ar":"اولت","en":"OLT"},{"ar":"اولف","en":"OLV"},{"ar":"ون اند مور","en":"One And More"},{"ar":"وان دروب","en":"ONE DROP COFFEE"},{"ar":"أونس","en":"Ons"},{"ar":"اونسه","en":"Onsah"},{"ar":"OOS COFFEE","en":"OOS COFFEE"},{"ar":"اوزي اند وبلي","en":"Oozy & Wobbly"},{"ar":"أوبال","en":"Opal Coffee House"},{"ar":"O Positive","en":"O Positive"},{"ar":"كوفي التفاؤل","en":"optimistic café"},{"ar":"الوبس كوفي","en":"OPUS COFFEE"},{"ar":"اوربيتال","en":"Orbital Coffee"},{"ar":"اوريجن","en":"ORIGIN"},{"ar":"اوريقو","en":"ORIGO"},{"ar":"أورو نوك","en":"ORO NOOK"},{"ar":"اورتا كافي","en":"Orta Coffee"},{"ar":"ام ار وف","en":"ORV"},{"ar":"OSHA | اوشا","en":"OSHA | اوشا"},{"ar":"استريتش","en":"Ostrich Coffee House"},{"ar":"ام تي بي","en":"OTB"},{"ar":"كافيه اوثا","en":"otha"},{"ar":"اتل كافيه","en":"OTL CAFE"},{"ar":"اوترا","en":"OTRA"},{"ar":"أوتن","en":"Otten"},{"ar":"أويا كافية","en":"OUIA Cafe"},{"ar":"أوتبوت","en":"OUTPUT"},{"ar":"اوتست","en":"outset"},{"ar":"اوفنلي","en":"OVENLY"},{"ar":"اوفيو","en":"OVVIO"},{"ar":"بنما كوفي","en":"Panama"},{"ar":"كوفي بانثر","en":"PANTHER"},{"ar":"بارتس برجر","en":"PARTS BURGER"},{"ar":"Pasion Cafe","en":"Pasion Cafe"},{"ar":"كافي التاسع الفاضلي مقدمي المشروبات","en":"Past Nine Cafe"},{"ar":"بافلا","en":"Pavla"},{"ar":"كوفة باكس","en":"PAX"},{"ar":"بيك سوندر","en":"Peak Sonder"},{"ar":"بيك أ برو","en":"PEEK A BREW"},{"ar":"كوفة بيرك","en":"Perk cafe"},{"ar":"Perpick Test","en":"Perpick Test"},{"ar":"Pesto LLC","en":"Pesto LLC"},{"ar":"بيك كب","en":"Pick Cup"},{"ar":"بيك اب كوفي","en":"Pick Up Coffee"},{"ar":"بيكو تاكوز","en":"Pico Tacos"},{"ar":"Pie story","en":"Pie story"},{"ar":"بيك","en":"Pikk"},{"ar":"بسترينا بيكري","en":"Pistrina Bakery"},{"ar":"بكج","en":"PKG"},{"ar":"بليس اند بيبل","en":"Place and People"},{"ar":"كوفة خطة أول","en":"PLAN A cafe"},{"ar":"بلانت كافة","en":"PLANT"},{"ar":"بلوب","en":"PLOP"},{"ar":"بلس بيلي كافي","en":"plusbelle caffe"},{"ar":"بوكي بول","en":"Poke Bowl"},{"ar":"بولكا","en":"Polka"},{"ar":"بورتو كافيه","en":"Porto cafe"},{"ar":"بورتو ريفيرا","en":"Porto riviera lounge"},{"ar":"بوتشا ماتشا & ردبول","en":"POTCHA"},{"ar":"بوف كوفي","en":"POV COFE"},{"ar":"برس كافي","en":"Press Coffee"},{"ar":"برس كافي.","en":"Press Coffee ."},{"ar":"بريتي بان","en":"Pretty bun"},{"ar":"بروبا كومبوتشا","en":"Proba Kombucha"},{"ar":"قافية الشاي - أتان موريتاني أصيل","en":"Qafiat Alshai - Authentic Mauritanian Tea"},{"ar":"قصادر","en":"Qasadeer"},{"ar":"قسورة كوفي","en":"Qaswarah Coffee"},{"ar":"قيفو","en":"Qivo coffee"},{"ar":"قبا كافيه","en":"Quba Cafe"},{"ar":"كويك كوفي","en":"Quick coffee"},{"ar":"كويك دوز","en":"Quick dose"},{"ar":"كواكا","en":"QUOKKA"},{"ar":"كوفة قرب","en":"Qurb cafe"},{"ar":"كوفة R3V","en":"R3V"},{"ar":"ربكة","en":"Rabka"},{"ar":"كوفي رفاه","en":"Rafah Cafe"},{"ar":"Rafah Spa","en":"Rafah Spa"},{"ar":"رهوة","en":"RAHWAH"},{"ar":"راكيز","en":"Rakeez"},{"ar":"راكيزة","en":"Rakiza"},{"ar":"شاي رامد","en":"Ramd"},{"ar":"كوفي رشفة( الجبري)","en":"Rashfa coffee (aljabrih)"},{"ar":"كوفي رشفة (الرميدة)","en":"Rashfa coffee(alrumayda)"},{"ar":"رشقة كوفة مختصه","en":"RASHQAH"},{"ar":"راشيو - جي أفينيو","en":"RATIO - JOY AVENUE"},{"ar":"راتلكافه","en":"ratlcafe"},{"ar":"رايفن كافيه","en":"RAVEN CAFE"},{"ar":"صالون راوة","en":"Rawa Salon"},{"ar":"ريبوت","en":"Reboot"},{"ar":"اعادة شحن للمشروبات","en":"Recharge coffee"},{"ar":"ريكولت بيكري","en":"Recolte bakery"},{"ar":"ريد هات","en":"Red Hat"},{"ar":"ريف العنب","en":"REEF alanb"},{"ar":"ريمايندر","en":"reminder"},{"ar":"رتوة البن","en":"retwah"},{"ar":"رحيفوووو","en":"Rhayif"},{"ar":"RIGHT COV","en":"RIGHT COV"},{"ar":"روست","en":"Roast"},{"ar":"روستشر","en":"Roasture"},{"ar":"رولكاف","en":"Rolcaf"},{"ar":"رولز اند شيك","en":"Rolls and Shake"},{"ar":"محمصة روح","en":"ROMH roastery"},{"ar":"كوفة روف","en":"Roof Coffee"},{"ar":"روم 13","en":"Room13"},{"ar":"محمصة كوفي ار او ار","en":"ROR Coffee Roasters"},{"ar":"كوفي رباع","en":"RUBA3"},{"ar":"رف كافي","en":"RUF Coffee"},{"ar":"كوفة رول","en":"Rule Coffee"},{"ar":"RW Matcha","en":"RW Matcha"},{"ar":"RYM Coffee","en":"RYM Coffee"},{"ar":"ريث  كوفي","en":"RYTH COFFEE"},{"ar":"صبيبونية | SABBA Coffee","en":"SABBA Coffee"},{"ar":"سدن","en":"Sadan"},{"ar":"كوفة سجف","en":"sajaf coffee"},{"ar":"سيج","en":"SAJE"},{"ar":"سكف","en":"sakaf"},{"ar":"سلام","en":"Salam"},{"ar":"شاي سلامة","en":"Salamh Tea"},{"ar":"سالاتوش سالد","en":"Salatoush Slds"},{"ar":"سال كافي","en":"Sal Coffee"},{"ar":"سامار كافه","en":"Samar Cafe"},{"ar":"شاهي سامر","en":"Samar Tea"},{"ar":"Samboso","en":"Samboso"},{"ar":"كوفي صميم البن","en":"Sameem Cafe"},{"ar":"سامراء","en":"Samra"},{"ar":"سمرات الشاي","en":"samrat alshai"},{"ar":"كوفة سند","en":"Sanad coffee"},{"ar":"كافة سنام","en":"Sanam cafe"},{"ar":"ساند كوفي","en":"sand clock cafe"},{"ar":"Santé Spa","en":"Santé Spa"},{"ar":"سقيفة شرق","en":"Saqifah Sharq"},{"ar":"سارا بلوسوم","en":"Sara's Bloosom"},{"ar":"كرك عنب سارما","en":"Sarma"},{"ar":"سطر كوفي","en":"Satr Coffee"},{"ar":"سافورا","en":"Savura"},{"ar":"بعد ارت","en":"Scaleart"},{"ar":"سكشن تي","en":"Section T"},{"ar":"قسم الشاي والمكسرات","en":"Section Tea & Nuts"},{"ar":"سين","en":"Seen"},{"ar":"كوفة سي","en":"Sei Coffee"},{"ar":"سيمي كافيه","en":"semi cafe"},{"ar":"سيرين | محمصة كوفي","en":"Serene Roastery"},{"ar":"سيرانو","en":"SERRANO"},{"ar":"سيتة","en":"SETTE"},{"ar":"محمصة كوفي شعف","en":"Shaal Coffee"},{"ar":"شباب تسعون","en":"Shabak Tes'oon"},{"ar":"شذة كانجر","en":"shaden"},{"ar":"شيك","en":"Shake"},{"ar":"معجنات شمس","en":"Shams Pastries"},{"ar":"شاري","en":"shari cafe"},{"ar":"اوتار الشاورما","en":"Shawarma AWTAR"},{"ar":"شاورما بار","en":"Shawarma bar"},{"ar":"شيربا","en":"Sherpa"},{"ar":"شيبلز","en":"Shibilz"},{"ar":"Shot Speciality Coffee","en":"Shot Speciality Coffee"},{"ar":"سيا سبا","en":"sia spa"},{"ar":"سيكا","en":"Sica"},{"ar":"سي كافيه","en":"Si Cafe"},{"ar":"Sidedoor","en":"Sidedoor"},{"ar":"كوفي سيلفر","en":"SILVER"},{"ar":"سمسم عجول قرمز","en":"SIMSIM"},{"ar":"رشفة اليوم كوفية المختصة","en":"Sip Day Specialty Coffee"},{"ar":"SIPORA","en":"SIPORA"},{"ar":"Sip + specialty coffee","en":"Sip + specialty coffee"},{"ar":"سكاي سبا","en":"Sky Spa"},{"ar":"سليب كوفة مختصة","en":"slip coffee"},{"ar":"سمار","en":"Smar"},{"ar":"سمبل كوفي","en":"SMPL COFFEE"},{"ar":"SMRACUP - كب سمرا","en":"SMRACUP - كب سمرا"},{"ar":"سو كيك & كوفي","en":"So cake & coffee"},{"ar":"سوشبل","en":"SOCIABLE"},{"ar":"صحبة","en":"Sohba Coffee"},{"ar":"سولالة","en":"solalah"},{"ar":"سولار ماتشا","en":"Solar matcha"},{"ar":"سوليو","en":"solio"},{"ar":"سول اولاس","en":"SOL OLAS"},{"ar":"بعض القهوة","en":"Some Coffee"},{"ar":"سوتايمز","en":"Sometimes"},{"ar":"소모 | سومو","en":"소모 | SOMO"},{"ar":"محمصة سورو","en":"Soro Roasters"},{"ar":"كرك عنب سوربايت","en":"SourBite"},{"ar":"سوز كوفي","en":"Soz Coffee"},{"ar":"كوفي الأكواب المختصة","en":"Specialty Cups Coffee"},{"ar":"ستار القهوة المختصة","en":"Star Specialty Coffee"},{"ar":"محمصة ستيم","en":"Steam Roastery"},{"ar":"ستلر","en":"Stellar Speciality Coffee"},{"ar":"ستل كوفة مختصة","en":"Stl"},{"ar":"كوفة ستونز","en":"STONES Cafe"},{"ar":"سلالات","en":"Sulalat"},{"ar":"سول برجر","en":"SUL Burger"},{"ar":"Summer Matcha","en":"Summer Matcha"},{"ar":"سوبربن","en":"Superbun"},{"ar":"TacoTalk","en":"TacoTalk"},{"ar":"تالا بيكهاوس","en":"TALA'S BAKEHOUSE"},{"ar":"طمح","en":"Tamah"},{"ar":"تامبر كوفية المختصة","en":"TAMPER speciality coffee"},{"ar":"تمرتك","en":"tamrtek"},{"ar":"فذاذ البرجر","en":"TASTY BURGER"},{"ar":"tasty portal","en":"tasty portal"},{"ar":"كوفي تاوان","en":"Tawal"},{"ar":"طويلة","en":"TAWYAH"},{"ar":"tea 4T","en":"tea 4T"},{"ar":"شاي تي جاذر","en":"Tea Gather"},{"ar":"تقاطع الشاي","en":"Tea intersection"},{"ar":"شاي جذيل","en":"Tea jathel"},{"ar":"عالم الشاي","en":"TEA WORLD"},{"ar":"تيدي سب","en":"TEDDY'S SIP"},{"ar":"تيجرنسي","en":"Tegrnsee"},{"ar":"تيرا كافيه","en":"Terra Cafe"},{"ar":"Test Delivrect Prod","en":"Test Delivrect Prod"},{"ar":"تستنج مرن","en":"Testing Marn"},{"ar":"طعام فود بالفرن","en":"TF Bakery"},{"ar":"شاهي ثمانية","en":"thamania"},{"ar":"ثنة","en":"Thannah"},{"ar":"ذا بريكفاست كلوب","en":"The breakfast club"},{"ar":"كوفي كوكب","en":"the coco club"},{"ar":"نحات القهوة","en":"The Coffee Sculptor"},{"ar":"The cookie club","en":"The cookie club"},{"ar":"كوفي الحديقة مقدمي المشروبات","en":"The Garden"},{"ar":"ذا قت كافه","en":"the gate coffe"},{"ar":"ذا ات","en":"THE IT"},{"ar":"ذا نوفا","en":"the Nová"},{"ar":"كوفي ذا بالم","en":"The Palm Coffee"},{"ar":"ذا سيلكشنز كافي","en":"The Selections coffee"},{"ar":"ذا سيفت","en":"The sift"},{"ar":"They","en":"They"},{"ar":"ذا يارد","en":"The Yard"},{"ar":"ثيرد ويڤ","en":"THiRDWAVE"},{"ar":"ثريز","en":"Threes"},{"ar":"Thulth","en":"Thulth"},{"ar":"تايجر شوقر","en":"TIGER SUGAR"},{"ar":"تيكا صابر","en":"Tikka Saber"},{"ar":"تايتل","en":"Title"},{"ar":"محمصة تلو كافية","en":"Tlo Cafe Roastery"},{"ar":"توستري","en":"Toastery"},{"ar":"تولف","en":"TOLV"},{"ar":"توبيك","en":"Topic"},{"ar":"Top Restaurant","en":"Top Restaurant"},{"ar":"توستو","en":"tosto"},{"ar":"توتم .","en":"Totem ."},{"ar":"ترانكيلو كوفة مختصة","en":"Tranquilo Cafe"},{"ar":"ترافيلو","en":"TRAVELU"},{"ar":"ترابيكا","en":"Treepica coffee roasters"},{"ar":"تريندي كيك","en":"Trendy Cake"},{"ar":"كوفي تربل تري","en":"Triple Tree Coffee"},{"ar":"TRM","en":"TRM"},{"ar":"ترنك","en":"Trunk"},{"ar":"Tunnel Burger","en":"Tunnel Burger"},{"ar":"ترتيل كوف","en":"Turtle cove"},{"ar":"توكسيدو","en":"TUXEDO"},{"ar":"عشرون قرام","en":"Twenty Grams"},{"ar":"علا","en":"Ula"},{"ar":"اليكا كافيه","en":"ULICA"},{"ar":"كوفة عمق","en":"UMQ Coffee"},{"ar":"يونيك دريب كوفة مختصة","en":"UNIQUE DRIP | Specialty Coffee"},{"ar":"الس رسو كافية","en":"UNSORSO CAFE"},{"ar":"اربن.","en":"urbn."},{"ar":"اوفاس","en":"UVAS"},{"ar":"v13","en":"v13"},{"ar":"V3","en":"V3"},{"ar":"فيك بيت القهوة","en":"Vake Coffee House"},{"ar":"فالي كافي","en":"VALLEY CAFE"},{"ar":"فالي كوفي","en":"VALLEY COFFEE"},{"ar":"Vark'الوارك","en":"Vark'الوارك"},{"ar":"Velu","en":"Velu"},{"ar":"Veni","en":"Veni"},{"ar":"ڤيردا ماتشا","en":"Verdea Matcha"},{"ar":"فايب","en":"Vibe"},{"ar":"ڤوغ","en":"VOGUE"},{"ar":"Volare coffee","en":"Volare coffee"},{"ar":"ڤولك","en":"volk"},{"ar":"فولو","en":"VOLO"},{"ar":"فولوم محمصة و قهوة","en":"Volume Coffee Roasters"},{"ar":"فونت ومحمصة فونت","en":"Vont Roastery"},{"ar":"فوف","en":"vov cafe"},{"ar":"ڤين كوفي","en":"VYN"},{"ar":"!دبليو","en":"W!"},{"ar":"كوفي وبر","en":"wabr cafe"},{"ar":"واكفي","en":"Wacafe"},{"ar":"وجنة","en":"WAJNAH"},{"ar":"والا غلطة","en":"Walla ghltta"},{"ar":"واما","en":"wama"},{"ar":"شاي وارد","en":"Wared Tea"},{"ar":"ورعق","en":"Wareeq"},{"ar":"واراقان","en":"Warqaan"},{"ar":"وسق","en":"Wasaq Coffee"},{"ar":"كوفة وصيد","en":"Waseed"},{"ar":"كوفة وصف","en":"Wasf Coffee"},{"ar":"شاي وشل","en":"Washal"},{"ar":"وسم","en":"WASM"},{"ar":"وثبة","en":"wathbah"},{"ar":"ويفز","en":"WAVES"},{"ar":"وي كاب","en":"Way cup"},{"ar":"وصال","en":"WESAL"},{"ar":"وهف كوفة مختصة","en":"WHF CAFE"},{"ar":"وايت بوكس","en":"white box"},{"ar":"وايت كافيه - الرياض","en":"White Cafe - Riyadh"},{"ar":"وايلد بولز","en":"Wild Bowls"},{"ar":"وينس كافيه","en":"wins cafe"},{"ar":"وزدم","en":"WISDOM"},{"ar":"Wish by saws","en":"Wish by saws"},{"ar":"WONDER!","en":"WONDER!"},{"ar":"وول كوفي","en":"Woool Coffee"},{"ar":"وش","en":"WSH"},{"ar":"Wzz","en":"Wzz"},{"ar":"كوفي واي سبعة وتسعون","en":"Y97 specialty coffee"},{"ar":"Yana Sweet","en":"Yana Sweet"},{"ar":"يارديك","en":"Yardek"},{"ar":"ياسير","en":"yaseer"},{"ar":"واي بي","en":"YB Cafe"},{"ar":"ايلي كوفة مختصة","en":"YLY Specialty Coffee"},{"ar":"يوتا كوفة مختصة","en":"Yotta specialty coffee"},{"ar":"يوبك","en":"your cup"},{"ar":"Your Zen Spa","en":"Your Zen spa"},{"ar":"Yrmin","en":"Yrmin"},{"ar":"زفير سبا","en":"Zafeer Spa"},{"ar":"زام البن","en":"Zam Coffee"},{"ar":"زميم","en":"Zamim"},{"ar":"زاريا دار كوفية","en":"ZARiA HOUSE"},{"ar":"زاي ماتشا","en":"Zay matcha"},{"ar":"زيلينا","en":"Zeila"},{"ar":"زونزي","en":"zonzi"},{"ar":"زوف","en":"Zov"},{"ar":"استطلاب","en":"استطلاب"},{"ar":"اسلوب كافيه","en":"اسلوب كافيه"},{"ar":"السم","en":"السم"},{"ar":"برجر زون","en":"برجر زون"},{"ar":"بروست ثقل حار","en":"بروست ثقل حار"},{"ar":"Behave","en":"بهاف"},{"ar":"بيرو بيرس","en":"بيرو بيرس"},{"ar":"تايم شاي","en":"تايم شاي"},{"ar":"تشريف","en":"تشريف"},{"ar":"تون • Tog","en":"تون • Tog"},{"ar":"جباتي فيرن","en":"جباتي فيرن"},{"ar":"جذر","en":"جذر"},{"ar":"حبسة متروكة","en":"حبسة متروكة"},{"ar":"خفقة كلاسيكية","en":"خفقة كلاسيكية"},{"ar":"دوائر مشوي","en":"دوائر مشوي"},{"ar":"دينامون كوفة مبجاي","en":"دينامون كوفة مبجاي"},{"ar":"The phone house matcha","en":"ذا فون هاوس ماتشا"},{"ar":"رافي برواني","en":"رافي برواني"},{"ar":"رحلة قهوة","en":"رحلة قهوة"},{"ar":"رشفة الطبيعة","en":"رشفة الطبيعة"},{"ar":"رغوان","en":"رغوان"},{"ar":"رمة شاي","en":"رمة شاي"},{"ar":"روح قهوة","en":"روح قهوة"},{"ar":"روبستري","en":"روبستري"},{"ar":"رونق - RYVK","en":"رونق - RYVK"},{"ar":"سماء الرافدين للشوكلات","en":"سماء الرافدين للشوكلات"},{"ar":"سيبيسي و شاهي","en":"سيبيسي و شاهي"},{"ar":"سين","en":"سين"},{"ar":"سيان","en":"سيان"},{"ar":"شارستد","en":"شارستد"},{"ar":"شاهي العهد","en":"شاهي العهد"},{"ar":"شاهي ڤايب TEA VIBE","en":"شاهي ڤايب TEA VIBE"},{"ar":"شاورما جفنان","en":"شاورما جفنان"},{"ar":"شاي دلة أنرو","en":"شاي دلة أنرو"},{"ar":"شاي مخيخ","en":"شاي مخيخ"},{"ar":"شاهي","en":"شاهي"},{"ar":"شاي نمج","en":"شاي نمج"},{"ar":"شاي هوبي","en":"شاي هوبي"},{"ar":"شويحي | Shwihi","en":"شويحي | Shwihi"},{"ar":"صباحي جود","en":"صباحي جود"},{"ar":"طحن كوفة مختصة","en":"طحن كوفة مختصة"},{"ar":"عتاب الشاي","en":"عتاب الشاي"},{"ar":"عريكة بيكري","en":"عريكة بيكري"},{"ar":"علقيزين","en":"علقيزين| Specialty cafe"},{"ar":"غية","en":"غية"},{"ar":"غيم و سحب","en":"غيم وسحب"},{"ar":"فرح معجنات","en":"فرح معجنات"},{"ar":"فطور دعبوب","en":"فطور دعبوب"},{"ar":"كوكيد","en":"كوكيد"},{"ar":"كوم","en":"كوم"},{"ar":"كطيف محلا العنبر","en":"كطيف محلا"},{"ar":"كوفة ومحمصة حلاوة","en":"كوفة ومحمصة حلاوة"},{"ar":"كاس جبل","en":"كاس جبل"},{"ar":"كافية مجنة","en":"كافية مجنة"},{"ar":"برونو كافيه","en":"كافيه برونو"},{"ar":"كافيه صخب","en":"كافيه صخب"},{"ar":"كوب حال","en":"كوب حال"},{"ar":"كوالة كان الحلو - عريض","en":"كوالة كان الحلو - عريض"},{"ar":"كوالة كبيح","en":"كوالة كبيح"},{"ar":"كوتشي","en":"كوتشي"},{"ar":"عهد","en":"كوفي عهد"},{"ar":"كولين","en":"كولين"},{"ar":"كافت كوكيز","en":"كافت كوكيز"},{"ar":"مؤسسة سناج لتقديم الوجبات","en":"مؤسسة سناج لتقديم الوجبات"},{"ar":"مؤسسة مطعم القصر المجدي","en":"مؤسسة مطعم القصر المجدي"},{"ar":"مافيد بروف","en":"مافيد بروف"},{"ar":"مثنى","en":"ماثيونين"},{"ar":"محمصة موا","en":"محمصة موا"},{"ar":"مركز ميعاد حسن لمتزوجي الرسائل","en":"مركز ميعاد حسن لمتزوجي الرسائل"},{"ar":"مشروبات فذاذ المقاعر","en":"مشروبات فذاذ المقاعر"},{"ar":"مطاعم الراشد","en":"مطاعم الراشد"},{"ar":"مطعم الاء المؤلؤة","en":"مطعم الاء المؤلؤة"},{"ar":"منقوعة منقرشة","en":"منقوعة منقرشة"},{"ar":"نقاب","en":"نقاب"},{"ar":"نقطة ماء","en":"نقطة ماء"},{"ar":"نجد كوفي","en":"نجد كوفي"},{"ar":"نرث كافيه","en":"نرث كافيه"},{"ar":"نصف كافيه","en":"نصف كافيه"},{"ar":"نطق الخيمة","en":"نطق الخيمة"},{"ar":"نيترو كافية","en":"نيترو كافية"},{"ar":"وترو كافية","en":"وترو كافية"}];
+
+  // Order matters: the two "lose" slots sit at index 3 and 7 — exactly opposite
+  // each other on the 8-slice wheel (4 slots = 180°) instead of side by side.
+  var PRIZES = [
+    { label: "خصم 5% على الاشتراك السنوي",  short: ["5% خصم", "سنوي"],   category: "باقة الولاء" },
+    { label: "خصم 10% على الاشتراك السنوي", short: ["10% خصم", "سنوي"],  category: "باقة الولاء" },
+    { label: "خصم 15% على الاشتراك السنوي", short: ["15% خصم", "سنوي"],  category: "باقة الولاء" },
+    { label: "حظ أوفر المرة الجاية",          short: ["حظ", "أوفر"],       category: "", lose: true },
+    { label: "شهر مجاني بدون عمولة",         short: ["شهر", "مجاني"],     category: "باقة الاستلام" },
+    { label: "شهرين مجاناً بدون عمولة",       short: ["شهرين", "مجاناً"],  category: "باقة الاستلام" },
+    { label: "3 أشهر مجاناً بدون عمولة",      short: ["3 أشهر", "مجاناً"], category: "باقة الاستلام" },
+    { label: "حظ أوفر المرة الجاية",          short: ["حظ", "أوفر"],       category: "", lose: true }
+  ];
+  var SEG_ANGLE = 360 / PRIZES.length;
+
+  // weights (sum to 100), aligned to PRIZES by index:
+  // [5%, 10%, 15%, lose, 1mo, 2mo, 3mo, lose]
+  var WEIGHTS_NEW = [35, 10, 5, 5, 25, 10, 5, 5];
+  var WEIGHTS_REGISTERED = [0, 0, 0, 25, 50, 20, 5, 0];
+
+  var ROLE_KEY = "nugttah_wheel_role";
+  var REVEAL_MS = 1400;
+  var CELEBRATION_MS = 5200;
+
+  function escapeHtml(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function pickPrizeIndex(weights){
+    var r = Math.random() * 100;
+    var acc = 0;
+    for (var i = 0; i < weights.length; i++){
+      acc += weights[i];
+      if (r < acc) return i;
+    }
+    return weights.length - 1;
+  }
+
+  // ---------------- Brand directory (registered partners) ----------------
+  function normalizeArabic(s){
+    return String(s == null ? "" : s)
+      .replace(/[أإآ]/g, "ا")
+      .replace(/ى/g, "ي")
+      .replace(/ة/g, "ه")
+      .replace(/[ً-ْ]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  function normalizeLatin(s){
+    return String(s == null ? "" : s).toLowerCase().replace(/\s+/g, " ").trim();
+  }
+
+  BRANDS.forEach(function(b){
+    b._arNorm = normalizeArabic(b.ar);
+    b._enNorm = normalizeLatin(b.en);
+  });
+
+  function findBrandMatches(query){
+    var qAr = normalizeArabic(query);
+    var qEn = normalizeLatin(query);
+    if (!qAr && !qEn) return [];
+    var out = [];
+    for (var i = 0; i < BRANDS.length && out.length < 8; i++){
+      var b = BRANDS[i];
+      if ((qAr && b._arNorm.indexOf(qAr) !== -1) || (qEn && b._enNorm.indexOf(qEn) !== -1)){
+        out.push(b);
+      }
+    }
+    return out;
+  }
+
+  function isRegisteredBrand(name){
+    var nAr = normalizeArabic(name);
+    var nEn = normalizeLatin(name);
+    if (!nAr && !nEn) return false;
+    for (var i = 0; i < BRANDS.length; i++){
+      var b = BRANDS[i];
+      if (b._arNorm === nAr || b._enNorm === nEn) return true;
+    }
+    return false;
+  }
+
+  function getStoredRole(){
+    try { return localStorage.getItem(ROLE_KEY); } catch (e){ return null; }
+  }
+  function storeRole(role){
+    try { localStorage.setItem(ROLE_KEY, role); } catch (e){}
+  }
+  function clearRole(){
+    try { localStorage.removeItem(ROLE_KEY); } catch (e){}
+  }
+  function currentRole(){
+    var params = new URLSearchParams(location.search);
+    var q = params.get("role");
+    if (q === "admin" || q === "ipad" || q === "tv") return q;
+    return getStoredRole();
+  }
+
+  function $(id){ return document.getElementById(id); }
+
+  var SCREENS = ["picker", "ipad", "tv", "admin", "offline"];
+  function showScreen(name){
+    SCREENS.forEach(function(s){
+      var node = $("screen-" + s);
+      if (node) node.hidden = (s !== name);
+    });
+    $("roleReset").hidden = (name === "picker");
+    $("roleResetConfirm").hidden = true;
+  }
+
+  function setStatus(el, state, text){
+    if (!el) return;
+    el.setAttribute("data-state", state);
+    el.textContent = text;
+  }
+
+  // ---------------- Firebase bootstrap ----------------
+  // Paste your own project's config here (Firebase console → Project settings
+  // → scroll to "Your apps"). This object is NOT secret — it's safe to ship
+  // client-side; access control comes from Firestore security rules instead.
+  var FIREBASE_CONFIG = {
+    apiKey: "PASTE_YOUR_FIREBASE_API_KEY",
+    authDomain: "PASTE_YOUR_PROJECT_ID.firebaseapp.com",
+    projectId: "PASTE_YOUR_PROJECT_ID",
+    storageBucket: "PASTE_YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "PASTE_YOUR_SENDER_ID",
+    appId: "PASTE_YOUR_APP_ID"
+  };
+
+  function firebaseReady(){ return FIREBASE_CONFIG.apiKey.indexOf("PASTE_YOUR") !== 0; }
+
+  var db = null;
+  if (firebaseReady()){
+    try {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      db = firebase.firestore();
+    } catch (e){ console.error("Firebase init failed", e); }
+  }
+  // Kept as promises so every existing dbPromise.then(...)/downloadsPromise.then(...)
+  // call site below works unchanged — Firebase itself initializes synchronously.
+  var dbPromise = Promise.resolve(db);
+
+  var downloadsShim = {
+    save: function(req){
+      return new Promise(function(resolve, reject){
+        try {
+          var blob = new Blob([req.data], { type: "text/csv;charset=utf-8;" });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement("a");
+          a.href = url;
+          a.download = req.filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(function(){ URL.revokeObjectURL(url); }, 60000);
+          resolve({ status: "saved" });
+        } catch (e){ reject(e); }
+      });
+    }
+  };
+  var downloadsPromise = Promise.resolve(downloadsShim);
+
+  // ---------------- Router ----------------
+  var mounted = { ipad: false, tv: false, admin: false };
+
+  function render(){
+    var role = currentRole();
+    if (!role){ showScreen("picker"); return; }
+    if (role === "ipad"){ showScreen("ipad"); mountIpad(); return; }
+    if (role === "tv"){ showScreen("tv"); mountTv(); return; }
+    if (role === "admin"){ showScreen("admin"); mountAdmin(); return; }
+    showScreen("picker");
+  }
+
+  $("pickIpad").addEventListener("click", function(){ storeRole("ipad"); render(); });
+  $("pickTv").addEventListener("click", function(){ storeRole("tv"); render(); });
+  $("pickAdmin").addEventListener("click", function(){ storeRole("admin"); render(); });
+
+  $("roleReset").addEventListener("click", function(){
+    $("roleResetConfirm").hidden = !$("roleResetConfirm").hidden;
+  });
+  $("roleResetCancel").addEventListener("click", function(){
+    $("roleResetConfirm").hidden = true;
+  });
+  $("roleResetConfirmBtn").addEventListener("click", function(){
+    clearRole();
+    $("roleResetConfirm").hidden = true;
+    render();
+  });
+
+  // ---------------- iPad view ----------------
+  function mountIpad(){
+    if (mounted.ipad) return;
+    mounted.ipad = true;
+
+    var form = $("ipadForm");
+    var brandInput = $("brandNameInput");
+    var phoneInput = $("phoneInput");
+    var errorEl = $("ipadError");
+    var rollBtn = $("rollBtn");
+    var confirmEl = $("ipadConfirm");
+    var suggestBox = $("brandSuggestions");
+    var submitting = false;
+
+    function renderSuggestions(matches){
+      if (!matches.length){ suggestBox.hidden = true; suggestBox.innerHTML = ""; return; }
+      suggestBox.innerHTML = matches.map(function(b){
+        var enPart = (b.en && b.en !== b.ar) ? '<span class="en">' + escapeHtml(b.en) + '</span>' : '';
+        return '<div class="brand-suggestion" data-ar="' + escapeHtml(b.ar) + '"><span class="ar">' + escapeHtml(b.ar) + '</span>' + enPart + '</div>';
+      }).join("");
+      suggestBox.hidden = false;
+    }
+
+    brandInput.addEventListener("input", function(){
+      renderSuggestions(findBrandMatches(brandInput.value));
+    });
+    brandInput.addEventListener("keydown", function(e){
+      if (e.key === "Escape"){ renderSuggestions([]); return; }
+      if (e.key === "Enter" && !suggestBox.hidden && suggestBox.firstChild){
+        e.preventDefault();
+        brandInput.value = suggestBox.firstChild.getAttribute("data-ar");
+        renderSuggestions([]);
+        phoneInput.focus();
+      }
+    });
+    brandInput.addEventListener("blur", function(){
+      setTimeout(function(){ renderSuggestions([]); }, 120);
+    });
+    suggestBox.addEventListener("mousedown", function(e){
+      var row = e.target.closest ? e.target.closest(".brand-suggestion") : null;
+      if (!row) return;
+      brandInput.value = row.getAttribute("data-ar");
+      renderSuggestions([]);
+      phoneInput.focus();
+    });
+
+    dbPromise.then(function(d){
+      if (!d){ rollBtn.disabled = true; return; }
+      rollBtn.disabled = false;
+    });
+    rollBtn.disabled = true;
+
+    form.addEventListener("submit", function(e){
+      e.preventDefault();
+      if (submitting) return;
+
+      var brandName = brandInput.value.trim();
+      var phoneDigits = phoneInput.value.replace(/\D/g, "");
+
+      if (brandName.length < 2){
+        errorEl.textContent = "اكتب اسم البراند.";
+        brandInput.focus();
+        return;
+      }
+      if (!/^05\d{8}$/.test(phoneDigits)){
+        errorEl.textContent = "رقم الجوال لازم يبدأ بـ 05 ويكون 10 أرقام بالضبط.";
+        phoneInput.focus();
+        return;
+      }
+      if (!db){
+        errorEl.textContent = "ما زلنا نتصل — انتظر لحظة وحاول مرة ثانية.";
+        return;
+      }
+
+      errorEl.textContent = "";
+      renderSuggestions([]);
+      submitting = true;
+      rollBtn.disabled = true;
+      rollBtn.textContent = "جاري اللف…";
+
+      var registered = isRegisteredBrand(brandName);
+      var weights = registered ? WEIGHTS_REGISTERED : WEIGHTS_NEW;
+      var prizeIndex = pickPrizeIndex(weights);
+      var prize = PRIZES[prizeIndex];
+
+      db.collection("spins").add({
+        brandName: brandName,
+        phone: phoneDigits,
+        prizeIndex: prizeIndex,
+        prizeLabel: prize.label,
+        category: prize.category,
+        registered: registered,
+        spinVersion: 1,
+        createdAt: Date.now()
+      }).then(function(){
+        form.classList.add("hide");
+        confirmEl.classList.add("show");
+        setTimeout(function(){
+          form.classList.remove("hide");
+          confirmEl.classList.remove("show");
+          brandInput.value = "";
+          phoneInput.value = "";
+          rollBtn.textContent = "لف العجلة";
+          rollBtn.disabled = false;
+          submitting = false;
+          brandInput.focus();
+        }, 3200);
+      }).catch(function(){
+        errorEl.textContent = "ما قدرنا نرسل — تأكد من الاتصال وحاول مرة ثانية.";
+        rollBtn.textContent = "لف العجلة";
+        rollBtn.disabled = false;
+        submitting = false;
+      });
+    });
+  }
+
+  // ---------------- TV view ----------------
+  var wheelDiscEl = null;
+  var currentRotation = 0;
+  var tvQueue = [];
+  var tvPlaying = false;
+  var tvFirstSnapshot = true;
+  var tvSeenVersions = {};
+  var lastSpin = null;
+  var WEDGE_CLASSES = ["wedge-a", "wedge-b", "wedge-c"];
+
+  function polarToXY(angleDeg, r, cx, cy){
+    var rad = angleDeg * Math.PI / 180;
+    return { x: cx + r * Math.sin(rad), y: cy - r * Math.cos(rad) };
+  }
+
+  function buildWheelSvg(){
+    var cx = 200, cy = 200, R = 190, labelR = 126;
+    var parts = [];
+    PRIZES.forEach(function(p, i){
+      var startA = i * SEG_ANGLE, endA = (i + 1) * SEG_ANGLE;
+      var p1 = polarToXY(startA, R, cx, cy);
+      var p2 = polarToXY(endA, R, cx, cy);
+      var wedgeClass = WEDGE_CLASSES[i % 3];
+      parts.push(
+        '<path class="' + wedgeClass + ' wedge-outline" d="M ' + cx + ' ' + cy +
+        ' L ' + p1.x.toFixed(2) + ' ' + p1.y.toFixed(2) +
+        ' A ' + R + ' ' + R + ' 0 0 1 ' + p2.x.toFixed(2) + ' ' + p2.y.toFixed(2) + ' Z"/>'
+      );
+
+      var mid = startA + SEG_ANGLE / 2;
+      var lp = polarToXY(mid, labelR, cx, cy);
+      // Labels are oriented radially, matching the wedge dividers — a fixed
+      // "upright" flip would only make sense for a static pie chart. Once the
+      // disc spins to an arbitrary rest angle, a pre-baked flip stops lining
+      // up with what's actually upright on screen, which read as garbled.
+      var rot = mid;
+      parts.push(
+        '<text class="wedge-label" text-anchor="middle" transform="rotate(' + rot + ' ' + lp.x.toFixed(2) + ' ' + lp.y.toFixed(2) + ')">' +
+        '<tspan x="' + lp.x.toFixed(2) + '" y="' + lp.y.toFixed(2) + '" dy="-6">' + escapeHtml(p.short[0]) + '</tspan>' +
+        '<tspan x="' + lp.x.toFixed(2) + '" y="' + lp.y.toFixed(2) + '" dy="19">' + escapeHtml(p.short[1]) + '</tspan>' +
+        '</text>'
+      );
+    });
+    parts.push('<circle class="wheel-hub" cx="' + cx + '" cy="' + cy + '" r="46"/>');
+    parts.push(
+      '<g class="wheel-hub-icon">' +
+      '<rect x="' + (cx - 15) + '" y="' + (cy - 8) + '" width="30" height="20" rx="2"/>' +
+      '<line x1="' + (cx - 15) + '" y1="' + (cy + 2) + '" x2="' + (cx + 15) + '" y2="' + (cy + 2) + '"/>' +
+      '<line x1="' + cx + '" y1="' + (cy - 8) + '" x2="' + cx + '" y2="' + (cy + 12) + '"/>' +
+      '<path d="M' + cx + ' ' + (cy - 8) + ' c-3-7 -12-6 -8 0" />' +
+      '<path d="M' + cx + ' ' + (cy - 8) + ' c3-7 12-6 8 0" />' +
+      '</g>'
+    );
+
+    wheelDiscEl.innerHTML = '<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">' + parts.join("") + '</svg>';
+  }
+
+  function spinTo(prizeIndex){
+    var centerAngle = prizeIndex * SEG_ANGLE + SEG_ANGLE / 2;
+    var safeHalf = Math.max(SEG_ANGLE / 2 - 5, 4);
+    var jitter = Math.random() * (safeHalf * 2) - safeHalf;
+    var desiredFinalMod = ((360 - centerAngle + jitter) % 360 + 360) % 360;
+    var currentMod = ((currentRotation % 360) + 360) % 360;
+    var diff = desiredFinalMod - currentMod;
+    if (diff < 0) diff += 360;
+    var extraSpins = 5;
+    currentRotation += diff + extraSpins * 360;
+    wheelDiscEl.style.transform = "rotate(" + currentRotation + "deg)";
+  }
+
+  function spawnConfetti(){
+    var layer = $("confettiLayer");
+    layer.innerHTML = "";
+    var colors = ["#F8AE4E", "#90DEC1", "#ECB1D1", "#FFFFFF"];
+    var count = 70;
+    for (var i = 0; i < count; i++){
+      var piece = document.createElement("div");
+      piece.className = "confetti-piece";
+      piece.style.left = (Math.random() * 100) + "%";
+      piece.style.background = colors[i % colors.length];
+      piece.style.animationDuration = (2.6 + Math.random() * 1.8) + "s";
+      piece.style.animationDelay = (Math.random() * 0.6) + "s";
+      piece.style.transform = "rotate(" + (Math.random() * 360) + "deg)";
+      layer.appendChild(piece);
+    }
+  }
+
+  function showBrandReveal(brandName){
+    $("tvCaption").innerHTML = "العجلة تلف الآن لـ <strong>" + escapeHtml(brandName) + "</strong>…";
+  }
+
+  function showCelebration(item){
+    var isLose = !!(PRIZES[item.prizeIndex] && PRIZES[item.prizeIndex].lose);
+    $("celebrationBrand").textContent = item.brandName;
+    if (isLose){
+      $("celebrationEyebrow").textContent = "حظ أوفر!";
+      $("celebrationPrize").textContent = "ما فيه جائزة هالمرة — جرب في زيارتك الجاية!";
+      $("celebrationCategory").hidden = true;
+    } else {
+      $("celebrationEyebrow").textContent = "مبروك!";
+      $("celebrationPrize").textContent = item.prizeLabel;
+      $("celebrationCategory").textContent = item.category;
+      $("celebrationCategory").hidden = false;
+      spawnConfetti();
+    }
+    $("celebrationOverlay").hidden = false;
+  }
+
+  function hideCelebration(){
+    $("celebrationOverlay").hidden = true;
+    $("tvCaption").textContent = "";
+  }
+
+  function playSpin(item){
+    return new Promise(function(resolve){
+      showBrandReveal(item.brandName);
+      setTimeout(function(){
+        spinTo(item.prizeIndex);
+        var onEnd = function(e){
+          if (e.propertyName !== "transform") return;
+          wheelDiscEl.removeEventListener("transitionend", onEnd);
+          showCelebration(item);
+          setTimeout(function(){
+            hideCelebration();
+            resolve();
+          }, CELEBRATION_MS);
+        };
+        wheelDiscEl.addEventListener("transitionend", onEnd);
+      }, REVEAL_MS);
+    });
+  }
+
+  function updateRedoButtonState(){
+    var btn = $("redoBtn");
+    if (!btn) return;
+    btn.disabled = !lastSpin || tvPlaying || !db;
+  }
+
+  function processTvQueue(){
+    if (tvPlaying || tvQueue.length === 0) return;
+    tvPlaying = true;
+    updateRedoButtonState();
+    var item = tvQueue.shift();
+    playSpin(item).then(function(){
+      tvPlaying = false;
+      updateRedoButtonState();
+      processTvQueue();
+    });
+  }
+
+  function docToSpinItem(doc){
+    var data = doc.data() || {};
+    return {
+      id: doc.id,
+      brandName: data.brandName || "",
+      phone: data.phone || "",
+      prizeIndex: typeof data.prizeIndex === "number" ? data.prizeIndex : 0,
+      prizeLabel: data.prizeLabel || "",
+      category: data.category || "",
+      registered: !!data.registered,
+      spinVersion: data.spinVersion || 1,
+      createdAt: data.createdAt || 0
+    };
+  }
+
+  function subscribeTv(){
+    db.collection("spins").orderBy("createdAt", "desc").limit(25).onSnapshot(
+      function(snap){
+        if (snap.docs.length){
+          lastSpin = docToSpinItem(snap.docs[0]);
+        }
+        updateRedoButtonState();
+
+        if (tvFirstSnapshot){
+          snap.docs.forEach(function(d){
+            var data = d.data() || {};
+            tvSeenVersions[d.id] = data.spinVersion || 1;
+          });
+          tvFirstSnapshot = false;
+          return;
+        }
+
+        var toQueue = [];
+        snap.docChanges().forEach(function(c){
+          if (c.type === "removed") return;
+          var item = docToSpinItem(c.doc);
+          if (tvSeenVersions[item.id] === item.spinVersion) return;
+          tvSeenVersions[item.id] = item.spinVersion;
+          toQueue.push(item);
+        });
+        if (!toQueue.length) return;
+        toQueue.sort(function(a, b){ return a.createdAt - b.createdAt; });
+        tvQueue = tvQueue.concat(toQueue);
+        processTvQueue();
+      },
+      function(){
+        setStatus($("tvStatus"), "error", "إعادة الاتصال");
+      }
+    );
+  }
+
+  function mountTv(){
+    if (mounted.tv) return;
+    mounted.tv = true;
+    wheelDiscEl = $("wheelDisc");
+    buildWheelSvg();
+    setStatus($("tvStatus"), "connecting", "جاري الاتصال");
+    dbPromise.then(function(d){
+      if (!d){ setStatus($("tvStatus"), "error", "غير متصل"); updateRedoButtonState(); return; }
+      setStatus($("tvStatus"), "live", "متصل");
+      subscribeTv();
+    });
+
+    $("redoBtn").addEventListener("click", function(){
+      if (!lastSpin || tvPlaying || !db) return;
+      var weights = lastSpin.registered ? WEIGHTS_REGISTERED : WEIGHTS_NEW;
+      var idx = pickPrizeIndex(weights);
+      var prize = PRIZES[idx];
+      var nextVersion = (tvSeenVersions[lastSpin.id] || lastSpin.spinVersion || 1) + 1;
+      db.collection("spins").doc(lastSpin.id).update({
+        prizeIndex: idx,
+        prizeLabel: prize.label,
+        category: prize.category,
+        spinVersion: nextVersion,
+        createdAt: Date.now()
+      }).catch(function(){
+        setStatus($("tvStatus"), "error", "ما قدرنا نعيد اللف — حاول ثانية");
+      });
+    });
+  }
+
+  // ---------------- Sheet / Admin view ----------------
+  var adminRows = [];
+  var pendingDeleteId = null;
+  var pendingDeleteTimer = null;
+
+  var TRASH_ICON =
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M4 7h16"/><path d="M9 7V4.5c0-.6.4-1 1-1h4c.6 0 1 .4 1 1V7"/><path d="M6 7l1 13c0 .6.4 1 1 1h8c.6 0 1-.4 1-1l1-13"/>' +
+    '</svg>';
+
+  function toCsvValue(v){
+    var s = String(v == null ? "" : v);
+    if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  function buildCsv(rows){
+    var BOM = String.fromCharCode(0xFEFF);
+    var lines = [["اسم البراند", "رقم الجوال", "الجائزة", "الوقت"].join(",")];
+    rows.forEach(function(r){
+      lines.push([
+        toCsvValue(r.brandName),
+        toCsvValue(r.phone),
+        toCsvValue(r.prizeLabel),
+        toCsvValue(new Date(r.createdAt).toLocaleString("ar-SA"))
+      ].join(","));
+    });
+    return BOM + lines.join("\r\n");
+  }
+
+  function renderAdminTable(){
+    var tbody = $("adminTbody");
+    var empty = $("adminEmpty");
+    if (!adminRows.length){
+      tbody.innerHTML = "";
+      empty.hidden = false;
+    } else {
+      empty.hidden = true;
+      tbody.innerHTML = adminRows.map(function(r){
+        var t = new Date(r.createdAt).toLocaleString("ar-SA", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+        var isConfirming = (pendingDeleteId === r.id);
+        var idAttr = escapeHtml(r.id);
+        var deleteBtn = '<button type="button" class="row-delete' + (isConfirming ? ' confirm' : '') +
+          '" data-id="' + idAttr + '">' + TRASH_ICON + '<span>' + (isConfirming ? "تأكيد؟" : "حذف") + '</span></button>';
+        return "<tr><td>" + escapeHtml(r.brandName) + "</td><td>" + escapeHtml(r.phone) + "</td><td>" +
+          escapeHtml(r.prizeLabel) + "</td><td class=\"num-col\">" + escapeHtml(t) + "</td><td class=\"action-col\">" + deleteBtn + "</td></tr>";
+      }).join("");
+    }
+
+    var statsEl = $("adminStats");
+    var counts = {};
+    var uniquePrizes = [];
+    PRIZES.forEach(function(p){
+      if (counts[p.label] === undefined){
+        counts[p.label] = 0;
+        uniquePrizes.push(p);
+      }
+    });
+    adminRows.forEach(function(r){ if (counts[r.prizeLabel] != null) counts[r.prizeLabel]++; });
+    var tiles = ['<div class="stat-tile"><span class="num">' + adminRows.length + '</span><span class="lbl">إجمالي التسجيلات</span></div>'];
+    uniquePrizes.forEach(function(p){
+      tiles.push('<div class="stat-tile"><span class="num">' + counts[p.label] + '</span><span class="lbl">' + escapeHtml(p.short.join(" ")) + '</span></div>');
+    });
+    statsEl.innerHTML = tiles.join("");
+  }
+
+  // Lightweight speed bump, not real security — anyone with the page's
+  // source (or the Firestore project id, with open rules) can still reach
+  // the data directly. This just stops casual peeking at phone numbers.
+  // Change the PIN to whatever you want.
+  var ADMIN_PIN = "2580";
+
+  function isAdminUnlocked(){
+    try { return sessionStorage.getItem("nugttah_admin_unlocked") === "1"; } catch (e){ return false; }
+  }
+  function setAdminUnlocked(){
+    try { sessionStorage.setItem("nugttah_admin_unlocked", "1"); } catch (e){}
+  }
+
+  var adminDataStarted = false;
+  function startAdminData(){
+    if (adminDataStarted) return;
+    adminDataStarted = true;
+
+    setStatus($("adminStatus"), "connecting", "جاري الاتصال");
+
+    dbPromise.then(function(d){
+      if (!d){ setStatus($("adminStatus"), "error", "غير متصل"); return; }
+      setStatus($("adminStatus"), "live", "متصل");
+      d.collection("spins").orderBy("createdAt", "desc").limit(1000).onSnapshot(
+        function(snap){
+          adminRows = snap.docs.map(function(doc){
+            var data = doc.data() || {};
+            return {
+              id: doc.id,
+              brandName: data.brandName || "",
+              phone: data.phone || "",
+              prizeLabel: data.prizeLabel || "",
+              category: data.category || "",
+              createdAt: data.createdAt || 0
+            };
+          });
+          renderAdminTable();
+        },
+        function(){
+          setStatus($("adminStatus"), "error", "إعادة الاتصال");
+        }
+      );
+    });
+
+    $("downloadCsvBtn").addEventListener("click", function(){
+      downloadsPromise.then(function(downloads){
+        if (!downloads){
+          setStatus($("adminStatus"), "error", "التنزيل غير متاح");
+          return;
+        }
+        var csv = buildCsv(adminRows);
+        downloads.save({ filename: "nugttah-timeout-winners.csv", data: csv }).catch(function(){});
+      });
+    });
+
+    $("adminTbody").addEventListener("click", function(e){
+      var btn = e.target.closest ? e.target.closest(".row-delete") : null;
+      if (!btn) return;
+      var id = btn.getAttribute("data-id");
+
+      if (pendingDeleteId === id){
+        clearTimeout(pendingDeleteTimer);
+        pendingDeleteId = null;
+        dbPromise.then(function(d){
+          if (!d) return;
+          d.collection("spins").doc(id).delete().catch(function(){
+            setStatus($("adminStatus"), "error", "ما قدرنا نحذف — حاول ثانية");
+          });
+        });
+        renderAdminTable();
+      } else {
+        pendingDeleteId = id;
+        renderAdminTable();
+        clearTimeout(pendingDeleteTimer);
+        pendingDeleteTimer = setTimeout(function(){
+          pendingDeleteId = null;
+          renderAdminTable();
+        }, 3000);
+      }
+    });
+  }
+
+  function refreshAdminView(){
+    var unlocked = isAdminUnlocked();
+    var lockEl = $("adminLock");
+    var contentEl = $("adminContent");
+    if (lockEl) lockEl.hidden = unlocked;
+    if (contentEl) contentEl.hidden = !unlocked;
+    if (unlocked) startAdminData();
+  }
+
+  function mountAdmin(){
+    if (mounted.admin){ refreshAdminView(); return; }
+    mounted.admin = true;
+
+    $("adminLockForm").addEventListener("submit", function(e){
+      e.preventDefault();
+      var pinInput = $("adminPinInput");
+      var lockError = $("adminLockError");
+      if (pinInput.value === ADMIN_PIN){
+        setAdminUnlocked();
+        lockError.textContent = "";
+        pinInput.value = "";
+        refreshAdminView();
+      } else {
+        lockError.textContent = "رمز غير صحيح.";
+        pinInput.value = "";
+        pinInput.focus();
+      }
+    });
+
+    refreshAdminView();
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
